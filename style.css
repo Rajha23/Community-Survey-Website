@@ -1,1 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-brand-bg: #050505;
+  --color-brand-bg-alt: #080808;
+  --color-brand-card: #0A0A0A;
+  --color-brand-yellow: #F7E2C0;
+  --color-brand-green: #4ADE80;
+  --color-brand-border: rgba(255, 255, 255, 0.05);
+  --color-text-primary: #E5E7EB;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --scale-102: 1.02;
+}
+
+@layer utilities {
+  .selection-yellow {
+    @apply selection:bg-[#F7E2C0] selection:text-black;
+  }
+}
+
+/* Global Animations */
+.animate-bounce-slow {
+  animation: bounce 2s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+  50% { transform: translateY(0); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+}
+
+/* Scroll Trigger Classes */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 1s ease-out;
+}
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FFB6C1;
+}
+
 /* All styles have been migrated to Tailwind CSS and the index.html <style> tag for the Dark Tech Redesign */
