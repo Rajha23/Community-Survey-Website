@@ -48,10 +48,6 @@ export default function LandingPage({ onViewChange }) {
 
       {/* Hero Section */}
       <section id="home" className="pt-40 pb-20 px-6 max-w-4xl mx-auto flex flex-col items-center text-center">
-        <div className="reveal-on-scroll font-mono text-text-muted mb-6 text-sm md:text-base bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-          git commit -m "launch_survey_initiative"
-        </div>
-
         <h1 className="reveal-on-scroll text-4xl md:text-6xl lg:text-7xl font-serif font-medium text-white mb-8 leading-tight tracking-tight">
           "Transforming communities with <br />
           <span className="italic text-text-secondary bg-clip-text text-transparent bg-gradient-to-r from-gray-400 to-gray-600">actionable data</span>"
