@@ -11,6 +11,7 @@ export default function AdminDashboard({ user, userData }) {
   const [communities, setCommunities] = useState([]);
   const [surveyRecords, setSurveyRecords] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedSurveyView, setSelectedSurveyView] = useState(null);
   
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -627,7 +628,10 @@ export default function AdminDashboard({ user, userData }) {
                       <tr key={s.id} className="hover:bg-white/5 transition-colors">
                         <td className="py-3 pl-6 pr-4">{new Date(s.date).toLocaleDateString()}</td>
                         <td className="py-3 pr-4">{s.userId} <br/><span className="text-xs text-text-muted">{s.userEmail}</span></td>
-                        <td className="py-3 pr-6 flex justify-end">
+                        <td className="py-3 pr-6 flex justify-end gap-2">
+                          <button onClick={() => setSelectedSurveyView(s)} className="text-blue-400 hover:underline flex items-center text-xs border border-blue-400/30 px-2 py-1 rounded bg-blue-400/10">
+                            <FileText className="w-3 h-3 mr-1" /> View
+                          </button>
                           <button onClick={() => triggerAiAnalysis('individual', s.userId)} className="text-brand-green hover:underline flex items-center text-xs border border-brand-green/30 px-2 py-1 rounded bg-brand-green/10">
                             <Sparkles className="w-3 h-3 mr-1" /> AI Analyze
                           </button>
@@ -639,6 +643,59 @@ export default function AdminDashboard({ user, userData }) {
               </div>
             </div>
           ))
+        )}
+
+        {selectedSurveyView && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto p-6 shadow-2xl">
+              <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
+                <div>
+                  <h3 className="text-2xl font-serif text-white">Survey Record</h3>
+                  <p className="text-text-muted mt-1">Submitted by {selectedSurveyView.userEmail} on {new Date(selectedSurveyView.date).toLocaleDateString()}</p>
+                </div>
+                <button onClick={() => setSelectedSurveyView(null)} className="text-text-muted hover:text-white">&times;</button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h4 className="text-brand-yellow font-bold text-sm mb-3">Community Details</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-white/60">Community Name: <span className="text-white">{selectedSurveyView.communityName}</span></div>
+                    {selectedSurveyView.communityProfile && (
+                      <>
+                        <div className="text-white/60">District: <span className="text-white">{selectedSurveyView.communityProfile.district}</span></div>
+                        <div className="text-white/60">Population: <span className="text-white">{selectedSurveyView.communityProfile.population}</span></div>
+                        <div className="text-white/60">Occupation: <span className="text-white">{selectedSurveyView.communityProfile.occupation}</span></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h4 className="text-brand-green font-bold text-sm mb-3">Survey Responses</h4>
+                  <div className="space-y-4">
+                    {Object.entries(selectedSurveyView.responses || {}).map(([question, answer], idx) => (
+                      <div key={idx} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                        <div className="text-white/60 text-xs mb-1 font-mono uppercase">{question}</div>
+                        <div className="text-white text-sm">
+                          {Array.isArray(answer) ? answer.join(', ') : (typeof answer === 'object' ? JSON.stringify(answer) : answer.toString())}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button 
+                  onClick={() => setSelectedSurveyView(null)}
+                  className="px-6 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
