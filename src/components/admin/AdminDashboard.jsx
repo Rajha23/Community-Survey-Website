@@ -392,6 +392,192 @@ export default function AdminDashboard({ user, userData }) {
               </div>
             </div>
           </div>
+
+          {/* New Additions */}
+          
+          <div className="grid grid-cols-1 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Journey Map</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-white">
+                  <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
+                    <tr>
+                      <th className="py-3 px-4 rounded-tl-lg">Stage</th>
+                      <th className="py-3 px-4">Experience</th>
+                      <th className="py-3 px-4">Pain Point</th>
+                      <th className="py-3 px-4 rounded-tr-lg">Opportunity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(aiData.journeyMap || []).map((jm, i) => (
+                      <tr key={i} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-4 font-bold text-brand-yellow whitespace-nowrap">{jm.stage}</td>
+                        <td className="py-4 px-4">{jm.experience}</td>
+                        <td className="py-4 px-4 text-red-300">{jm.painPoint}</td>
+                        <td className="py-4 px-4 text-brand-green">{jm.opportunity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Community Asset Map</h4>
+              <div className="space-y-4">
+                {Object.entries(aiData.communityAssetMap || {}).map(([key, items]) => (
+                  <div key={key}>
+                    <h5 className="text-white font-bold text-sm mb-2 capitalize">{key} Assets</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {(items || []).map((item, i) => (
+                        <span key={i} className="px-2 py-1 bg-white/10 rounded-md text-xs text-white/80">{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Problem Tree Analysis</h4>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 text-center">
+                <h5 className="text-red-400 font-bold text-sm mb-1">Core Problem</h5>
+                <p className="text-white">{aiData.problemTree?.mainProblem}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 rounded-xl p-4">
+                  <h5 className="text-text-muted font-bold text-sm mb-2 text-center">Causes (Roots)</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.problemTree?.causes || []).map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-white/5 rounded-xl p-4">
+                  <h5 className="text-text-muted font-bold text-sm mb-2 text-center">Effects (Branches)</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.problemTree?.effects || []).map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Affinity Diagram Themes</h4>
+              <div className="space-y-4">
+                {(aiData.affinityDiagram || []).map((ad, idx) => (
+                  <div key={idx} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <h5 className="text-brand-yellow font-bold text-sm mb-2">{ad.theme}</h5>
+                    <ul className="list-disc pl-4 space-y-1 text-sm text-white/80">
+                      {(ad.insights || []).map((insight, i) => <li key={i}>{insight}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-brand-yellow/10 border border-brand-yellow/30 rounded-2xl p-6 shadow-lg shadow-brand-yellow/5">
+                <h4 className="text-brand-yellow text-sm uppercase font-bold font-mono mb-4">"How Might We" Statements</h4>
+                <ul className="space-y-3">
+                  {(aiData.howMightWeStatements || []).map((hmw, i) => (
+                    <li key={i} className="flex gap-3 items-start text-white/90">
+                      <span className="text-brand-yellow mt-0.5">✨</span>
+                      <span>{hmw}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Priority Matrix (Impact x Feasibility)</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-white">
+                    <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
+                      <tr>
+                        <th className="py-2 px-3">Project</th>
+                        <th className="py-2 px-3 text-center">Impact (1-5)</th>
+                        <th className="py-2 px-3 text-center">Feas. (1-5)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {(aiData.priorityMatrix || []).map((pm, i) => (
+                        <tr key={i} className="hover:bg-white/5">
+                          <td className="py-3 px-3 font-medium">{pm.project}</td>
+                          <td className="py-3 px-3 text-center text-brand-green font-bold">{pm.impact}</td>
+                          <td className="py-3 px-3 text-center text-blue-400 font-bold">{pm.feasibility}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">SDG Mapping Dashboard</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {(aiData.sdgMapping || []).map((sdg, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h5 className="font-bold text-white text-sm">{sdg.sdg}</h5>
+                      <span className="text-xs bg-brand-green/20 text-brand-green px-2 py-0.5 rounded-full border border-brand-green/30">Score: {sdg.score}</span>
+                    </div>
+                    <p className="text-xs text-white/70">{sdg.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Implementation Roadmap</h4>
+              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/20 before:to-transparent">
+                {(aiData.implementationRoadmap || []).map((rm, i) => (
+                  <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-900 group-[.is-active]:bg-brand-green text-slate-500 group-[.is-active]:text-slate-900 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow">
+                      <span className="font-bold text-sm">{i+1}</span>
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-white/10 bg-white/5 shadow">
+                      <div className="flex items-center justify-between space-x-2 mb-1">
+                        <div className="font-bold text-brand-yellow text-sm">{rm.month}</div>
+                      </div>
+                      <div className="text-white/80 text-sm">{rm.activity}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Before-and-After Impact Assessment</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-white">
+                  <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
+                    <tr>
+                      <th className="py-3 px-4 rounded-tl-lg">Metric</th>
+                      <th className="py-3 px-4 text-red-300">Baseline (Before)</th>
+                      <th className="py-3 px-4 text-brand-green rounded-tr-lg">Target (After)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(aiData.impactAssessment || []).map((impact, i) => (
+                      <tr key={i} className="hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-4 font-medium text-white">{impact.metric}</td>
+                        <td className="py-4 px-4 text-white/70">{impact.baseline}</td>
+                        <td className="py-4 px-4 text-brand-green/90 font-medium">{impact.target}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
