@@ -283,23 +283,113 @@ export default function AdminDashboard({ user, userData }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h4 className="text-text-muted text-sm uppercase font-mono mb-2">Community Profile</h4>
-              <div className="text-white text-sm" dangerouslySetInnerHTML={{ __html: aiData.communityProfile?.description }} />
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Community Profile</h4>
+              <p className="text-white text-sm mb-4">{aiData.communityProfile?.description}</p>
+              <div className="text-brand-yellow text-sm">
+                <strong>Major Issues:</strong> {(aiData.communityProfile?.majorIssues || []).join(', ')}
+              </div>
             </div>
+            
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 md:col-span-2">
-              <h4 className="text-text-muted text-sm uppercase font-mono mb-2">Priority Index (CPI)</h4>
-              <div className="text-white text-sm" dangerouslySetInnerHTML={{ __html: aiData.communityPriorityIndex }} />
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Priority Index (CPI)</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-white">
+                  <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
+                    <tr>
+                      <th className="py-3 px-4 rounded-tl-lg">Identified Problem</th>
+                      <th className="py-3 px-4 text-center">Score</th>
+                      <th className="py-3 px-4 rounded-tr-lg">Priority Level</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(aiData.communityPriorityIndex || []).map((item, i) => {
+                      const isCritical = item.score > 80;
+                      const isHigh = item.score > 50;
+                      const badgeColor = isCritical ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
+                                       isHigh ? 'bg-brand-yellow/20 text-brand-yellow border-brand-yellow/30' : 
+                                       'bg-brand-green/20 text-brand-green border-brand-green/30';
+                      const priorityText = isCritical ? 'Critical' : isHigh ? 'High' : 'Moderate';
+                      
+                      return (
+                        <tr key={i} className="hover:bg-white/5 transition-colors group">
+                          <td className="py-4 px-4 font-medium text-white">{item.problem}</td>
+                          <td className="py-4 px-4 text-center">
+                            <span className="font-bold text-lg">{item.score}</span>
+                            <span className="text-xs text-text-muted">/100</span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeColor}`}>
+                              {priorityText}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h4 className="text-text-muted text-sm uppercase font-mono mb-2">Stakeholder Map</h4>
-              <div className="text-white text-sm" dangerouslySetInnerHTML={{ __html: aiData.stakeholderMap }} />
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Stakeholder Map</h4>
+              <div className="grid grid-cols-2 gap-4 h-full">
+                <div className="bg-brand-yellow/10 border border-brand-yellow/20 rounded-xl p-4">
+                  <h5 className="text-brand-yellow font-bold text-sm mb-3">★ High Power, High Interest</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/90">
+                    {(aiData.stakeholderMap?.highHigh || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <h5 className="text-blue-400 font-bold text-sm mb-3">👀 High Power, Low Interest</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/90">
+                    {(aiData.stakeholderMap?.highLow || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-brand-green/10 border border-brand-green/20 rounded-xl p-4">
+                  <h5 className="text-brand-green font-bold text-sm mb-3">🤝 Low Power, High Interest</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/90">
+                    {(aiData.stakeholderMap?.lowHigh || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-gray-500/10 border border-gray-500/20 rounded-xl p-4">
+                  <h5 className="text-gray-400 font-bold text-sm mb-3">ℹ️ Low Power, Low Interest</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/90">
+                    {(aiData.stakeholderMap?.lowLow || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+              </div>
             </div>
+            
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <h4 className="text-text-muted text-sm uppercase font-mono mb-2">Empathy Map</h4>
-              <div className="text-white text-sm" dangerouslySetInnerHTML={{ __html: aiData.empathyMap }} />
+              <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Empathy Map</h4>
+              <div className="grid grid-cols-2 gap-4 h-full">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h5 className="text-white font-bold text-sm mb-3">💬 Says</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.empathyMap?.says || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h5 className="text-white font-bold text-sm mb-3">💭 Thinks</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.empathyMap?.thinks || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h5 className="text-white font-bold text-sm mb-3">🏃 Does</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.empathyMap?.does || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <h5 className="text-white font-bold text-sm mb-3">❤️ Feels</h5>
+                  <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
+                    {(aiData.empathyMap?.feels || []).map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>
