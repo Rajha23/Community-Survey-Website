@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc, addDoc, query, where, deleteDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { auth, db, secondaryAuth, functions } from '../../lib/firebase';
+import { auth, db, secondaryAuth } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
 import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2 } from 'lucide-react';
@@ -140,12 +139,25 @@ export default function AdminDashboard({ user, userData }) {
         throw new Error("No survey records found for this selection.");
       }
 
-      const generateAiAnalysis = httpsCallable(functions, 'generateAiAnalysis');
-      const result = await generateAiAnalysis({
-        submissions,
-        analysisType: type,
-        referenceId: referenceId
+      const response = await fetch('/api/generateAnalysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          data: {
+            submissions,
+            analysisType: type,
+            referenceId: referenceId
+          }
+        })
       });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate AI analysis.');
+      }
 
       setAiData(result.data);
     } catch (err) {
