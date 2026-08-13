@@ -93,16 +93,8 @@ export default async function handler(req, res) {
     }
 
     const prompt = `
-    You are an expert Community Development and Design Thinking AI.
-    Analyze the following aggregated and anonymized survey data. Do NOT calculate basic statistics, focus entirely on qualitative interpretation, problem formulation, and synthesis.
-    
-    Context: ${JSON.stringify(communityData || {})}
-    Community Profile Snapshot: ${JSON.stringify(latestCommunityProfile || {})}
-    Total Respondents: ${safeAggregatedStats.totalResponses}
-    Aggregated Survey Data: ${JSON.stringify(safeAggregatedStats)}
-    
     Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
-    IMPORTANT: You MUST generate actual, deep insights derived from the Aggregated Survey Data. Do NOT output placeholder text.
+    IMPORTANT: You MUST generate actual, deep insights derived exclusively from the Aggregated Survey Data. DO NOT under any circumstances output placeholder text or generic templates. 
     
     The JSON output MUST perfectly conform to the following TypeScript interface:
 
@@ -172,6 +164,11 @@ export default async function handler(req, res) {
     }
     
     Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
+    
+    Context: ${JSON.stringify(communityData || {})}
+    Community Profile Snapshot: ${JSON.stringify(latestCommunityProfile || {})}
+    Total Respondents: ${safeAggregatedStats.totalResponses}
+    Aggregated Survey Data: ${JSON.stringify(safeAggregatedStats)}
     `;
 
     console.log(`Contacting Gemini SDK with model: ${modelName}`);
@@ -182,7 +179,8 @@ export default async function handler(req, res) {
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        temperature: 0.7
+        temperature: 0.7,
+        systemInstruction: "You are an expert Community Development and Design Thinking AI. Your ONLY job is to take the provided Aggregated Survey Data and synthesize a hyper-specific, data-driven, actionable analysis in JSON format. Do not use generic template text. Everything must be derived from the user's data."
       }
     });
 
