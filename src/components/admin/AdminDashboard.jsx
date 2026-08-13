@@ -47,7 +47,7 @@ export default function AdminDashboard({ user, userData }) {
   const [aiError, setAiError] = useState('');
   const [aiData, setAiData] = useState(null);
   const [selectedAiSurveys, setSelectedAiSurveys] = useState([]);
-  const [selectedAiTopics, setSelectedAiTopics] = useState(AI_TOPICS.map(t => t.id));
+  const [selectedAiTopics, setSelectedAiTopics] = useState([]);
 
   useEffect(() => {
     fetchData();
