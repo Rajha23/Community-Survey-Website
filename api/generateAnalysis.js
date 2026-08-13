@@ -95,72 +95,73 @@ export default async function handler(req, res) {
     const prompt = `
     Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
     IMPORTANT: You MUST generate actual, deep insights derived exclusively from the Aggregated Survey Data. DO NOT under any circumstances output placeholder text or generic templates. 
+    CRITICAL: Even if the provided data is sparse, you MUST extrapolate and infer reasonable Design Thinking insights to COMPLETELY populate the entire JSON structure. Do NOT leave any array empty. Every single array MUST have at least 1-3 highly detailed items. Be creative and analytical.
     
-    The JSON output MUST perfectly conform to the following TypeScript interface:
+    The JSON output MUST perfectly conform to the following TypeScript interface. All fields are REQUIRED.
 
     interface AnalysisOutput {
       communityProfile: { 
         description: string; // A detailed 3-paragraph summary of the community based on data
-        majorIssues: string[]; // List of specific issues identified
+        majorIssues: string[]; // List of specific issues identified (MUST NOT BE EMPTY)
       };
       stakeholderMap: { 
-        highHigh: string[]; // High power, high interest stakeholders
-        highLow: string[]; // High power, low interest
-        lowHigh: string[]; // Low power, high interest
-        lowLow: string[]; // Low power, low interest
+        highHigh: string[]; // High power, high interest stakeholders (MUST NOT BE EMPTY)
+        highLow: string[]; // High power, low interest (MUST NOT BE EMPTY)
+        lowHigh: string[]; // Low power, high interest (MUST NOT BE EMPTY)
+        lowLow: string[]; // Low power, low interest (MUST NOT BE EMPTY)
       };
       empathyMap: { 
-        says: string[]; // Direct quotes or sentiments
-        thinks: string[]; 
-        does: string[]; 
-        feels: string[]; 
+        says: string[]; // Direct quotes or sentiments (MUST NOT BE EMPTY)
+        thinks: string[]; // (MUST NOT BE EMPTY)
+        does: string[]; // (MUST NOT BE EMPTY)
+        feels: string[]; // (MUST NOT BE EMPTY)
       };
       journeyMap: Array<{ 
         stage: string; // Name of stage
         experience: string; // Description of experience
         painPoint: string; // Specific pain point
         opportunity: string; // Opportunity for improvement
-      }>;
+      }>; // (MUST NOT BE EMPTY - Generate at least 3 stages)
       communityAssetMap: { 
-        human: string[]; // Human assets/skills
-        physical: string[]; 
-        natural: string[]; 
-        institutional: string[]; 
-        economic: string[]; 
+        human: string[]; // Human assets/skills (MUST NOT BE EMPTY)
+        physical: string[]; // (MUST NOT BE EMPTY)
+        natural: string[]; // (MUST NOT BE EMPTY)
+        institutional: string[]; // (MUST NOT BE EMPTY)
+        economic: string[]; // (MUST NOT BE EMPTY)
       };
       problemTree: { 
         mainProblem: string; // The core problem
-        causes: string[]; // Root causes
-        effects: string[]; // Effects
+        causes: string[]; // Root causes (MUST NOT BE EMPTY)
+        effects: string[]; // Effects (MUST NOT BE EMPTY)
       };
       affinityDiagram: Array<{ 
         theme: string; // Emergent theme
         insights: string[]; // Deep insights for this theme
-      }>;
-      howMightWeStatements: string[]; // Actionable HMW statements
+      }>; // (MUST NOT BE EMPTY)
+      howMightWeStatements: string[]; // Actionable HMW statements (MUST NOT BE EMPTY)
       priorityMatrix: Array<{ 
         project: string; // Name of project
         impact: number; // 1 to 5 scale
         feasibility: number; // 1 to 5 scale
-      }>;
+      }>; // (MUST NOT BE EMPTY)
       sdgMapping: Array<{ 
         sdg: string; // e.g. "SDG 6: Clean Water"
         score: number; // 0 to 100 alignment score
         reason: string; // Justification
-      }>;
+      }>; // (MUST NOT BE EMPTY)
       communityPriorityIndex: Array<{ 
         problem: string; // Specific problem
         score: number; // Priority score 0 to 100
-      }>;
+      }>; // (MUST NOT BE EMPTY)
       implementationRoadmap: Array<{ 
         month: string; // e.g. "Month 1"
         activity: string; // Specific actionable step
-      }>;
+      }>; // (MUST NOT BE EMPTY)
       impactAssessment: Array<{ 
         metric: string; // Measurable indicator
         baseline: string; // Current state
         target: string; // Desired future state
-      }>;
+      }>; // (MUST NOT BE EMPTY)
     }
     
     Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
