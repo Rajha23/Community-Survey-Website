@@ -63,7 +63,26 @@ export default async function handler(req, res) {
 
     const { analysisType, referenceId, communityData, submissions = [], selectedTopics } = data;
     
-    // ... we need to inject the dynamic schema right after the prompt starts ...
+    const apiKey = process.env.GEMINI_API_KEY;
+    const modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+    
+    if (!apiKey) {
+      console.error("AI_ERROR: GEMINI_API_KEY missing from environment.");
+      return res.status(500).json({ error: 'Gemini API configuration error.' });
+    }
+
+    if (!analysisType || !referenceId) {
+      console.error("AI_ERROR: Missing required parameters 'analysisType' or 'referenceId'.");
+      return res.status(400).json({ error: 'Missing required parameters.' });
+    }
+
+    console.log(`Starting analysis. Type: ${analysisType}, Ref: ${referenceId}`);
+    console.log(`Received ${submissions.length} records for ${referenceId}`);
+
+    if (submissions.length === 0) {
+      console.error(`AI_ERROR: No survey data found for type: ${analysisType}, ref: ${referenceId}`);
+      return res.status(404).json({ error: 'Survey data could not be loaded. No records exist for this community/individual.' });
+    }
     const TOPIC_SCHEMAS = {
       communityProfile: `      communityProfile: { \n        description: string; // A detailed 3-paragraph summary of the community based on data\n        majorIssues: string[]; // List of specific issues identified (MUST NOT BE EMPTY)\n      };`,
       stakeholderMap: `      stakeholderMap: { \n        highHigh: string[]; // High power, high interest stakeholders (MUST NOT BE EMPTY)\n        highLow: string[]; // High power, low interest (MUST NOT BE EMPTY)\n        lowHigh: string[]; // Low power, high interest (MUST NOT BE EMPTY)\n        lowLow: string[]; // Low power, low interest (MUST NOT BE EMPTY)\n      };`,
@@ -82,6 +101,14 @@ export default async function handler(req, res) {
 
     const requestedTopics = selectedTopics && selectedTopics.length > 0 ? selectedTopics : Object.keys(TOPIC_SCHEMAS);
     const interfaceBody = requestedTopics.map(t => TOPIC_SCHEMAS[t]).filter(Boolean).join('\n');
+
+    const safeAggregatedStats = extractAndAggregate(submissions);
+
+    let latestCommunityProfile = null;
+    const subsWithProfiles = submissions.filter(s => s.communityProfile);
+    if (subsWithProfiles.length > 0) {
+      latestCommunityProfile = subsWithProfiles[subsWithProfiles.length - 1].communityProfile;
+    }
 
     const prompt = `
     Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
