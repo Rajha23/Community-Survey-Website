@@ -3,7 +3,7 @@ import { collection, getDocs, doc, setDoc, addDoc, query, where, deleteDoc } fro
 import { auth, db, secondaryAuth } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
-import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar } from 'lucide-react';
 
 const AI_TOPICS = [
   { id: 'communityProfile', label: 'Community Profile' },
@@ -707,13 +707,15 @@ export default function AdminDashboard({ user, userData }) {
         <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-xl font-serif text-white">Survey Submissions by Community</h2>
           <div className="flex items-center space-x-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
-            <label htmlFor="surveyDateFilter" className="text-sm text-text-muted font-medium whitespace-nowrap">Filter by Date:</label>
+            <Calendar className="w-4 h-4 text-text-muted" />
+            <label htmlFor="surveyDateFilter" className="text-sm text-text-muted font-medium whitespace-nowrap hidden sm:block">Filter by Date:</label>
             <input
               type="date"
               id="surveyDateFilter"
               value={surveyDateFilter}
               onChange={(e) => setSurveyDateFilter(e.target.value)}
-              className="bg-transparent border-none text-white text-sm focus:ring-0 outline-none w-auto cursor-pointer"
+              className="bg-transparent border-none text-white text-sm focus:ring-0 outline-none w-auto cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 transition-opacity"
+              style={{ colorScheme: 'dark' }}
             />
             {surveyDateFilter && (
               <button 
