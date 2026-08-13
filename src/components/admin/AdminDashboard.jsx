@@ -28,7 +28,7 @@ export default function AdminDashboard({ user, userData }) {
   const [surveyRecords, setSurveyRecords] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedSurveyView, setSelectedSurveyView] = useState(null);
-  
+  const [surveyDateFilter, setSurveyDateFilter] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [newUserRole, setNewUserRole] = useState('student');
@@ -680,8 +680,22 @@ export default function AdminDashboard({ user, userData }) {
   const renderSurveys = () => {
     // Group surveys by communityName and sort by date descending
     const groupedSurveys = {};
-    const sortedRecords = [...surveyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+    let sortedRecords = [...surveyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
     
+    if (surveyDateFilter) {
+      // Filter by the exact date (YYYY-MM-DD)
+      sortedRecords = sortedRecords.filter(s => {
+        // Handle potentially different date formats by parsing and formatting
+        try {
+          const d = new Date(s.date);
+          const formattedDate = d.toISOString().split('T')[0];
+          return formattedDate === surveyDateFilter;
+        } catch(e) {
+          return false;
+        }
+      });
+    }
+
     sortedRecords.forEach(s => {
       const commName = s.communityName || 'Unknown Community';
       if (!groupedSurveys[commName]) groupedSurveys[commName] = [];
@@ -690,12 +704,33 @@ export default function AdminDashboard({ user, userData }) {
 
     return (
       <div>
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-6 gap-4">
           <h2 className="text-xl font-serif text-white">Survey Submissions by Community</h2>
+          <div className="flex items-center space-x-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
+            <label htmlFor="surveyDateFilter" className="text-sm text-text-muted font-medium whitespace-nowrap">Filter by Date:</label>
+            <input
+              type="date"
+              id="surveyDateFilter"
+              value={surveyDateFilter}
+              onChange={(e) => setSurveyDateFilter(e.target.value)}
+              className="bg-transparent border-none text-white text-sm focus:ring-0 outline-none w-auto cursor-pointer"
+            />
+            {surveyDateFilter && (
+              <button 
+                onClick={() => setSurveyDateFilter('')}
+                className="text-text-muted hover:text-white transition-colors"
+                title="Clear Filter"
+              >
+                &times;
+              </button>
+            )}
+          </div>
         </div>
         
         {Object.keys(groupedSurveys).length === 0 ? (
-          <p className="text-text-secondary text-sm">No survey submissions yet.</p>
+          <p className="text-text-secondary text-sm">
+            {surveyDateFilter ? "No survey submissions found for this date." : "No survey submissions yet."}
+          </p>
         ) : (
           Object.entries(groupedSurveys).map(([commName, records]) => (
             <div key={commName} className="mb-8 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
