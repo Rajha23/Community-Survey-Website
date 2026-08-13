@@ -61,36 +61,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing request data' });
     }
 
-    const { analysisType, referenceId, communityData, submissions = [] } = data;
+    const { analysisType, referenceId, communityData, submissions = [], selectedTopics } = data;
     
-    const apiKey = process.env.GEMINI_API_KEY;
-    const modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
-    
-    if (!apiKey) {
-      console.error("AI_ERROR: GEMINI_API_KEY missing from environment.");
-      return res.status(500).json({ error: 'Gemini API configuration error.' });
-    }
+    // ... we need to inject the dynamic schema right after the prompt starts ...
+    const TOPIC_SCHEMAS = {
+      communityProfile: `      communityProfile: { \n        description: string; // A detailed 3-paragraph summary of the community based on data\n        majorIssues: string[]; // List of specific issues identified (MUST NOT BE EMPTY)\n      };`,
+      stakeholderMap: `      stakeholderMap: { \n        highHigh: string[]; // High power, high interest stakeholders (MUST NOT BE EMPTY)\n        highLow: string[]; // High power, low interest (MUST NOT BE EMPTY)\n        lowHigh: string[]; // Low power, high interest (MUST NOT BE EMPTY)\n        lowLow: string[]; // Low power, low interest (MUST NOT BE EMPTY)\n      };`,
+      empathyMap: `      empathyMap: { \n        says: string[]; // Direct quotes or sentiments (MUST NOT BE EMPTY)\n        thinks: string[]; // (MUST NOT BE EMPTY)\n        does: string[]; // (MUST NOT BE EMPTY)\n        feels: string[]; // (MUST NOT BE EMPTY)\n      };`,
+      journeyMap: `      journeyMap: Array<{ \n        stage: string; // Name of stage\n        experience: string; // Description of experience\n        painPoint: string; // Specific pain point\n        opportunity: string; // Opportunity for improvement\n      }>; // (MUST NOT BE EMPTY - Generate at least 3 stages)`,
+      communityAssetMap: `      communityAssetMap: { \n        human: string[]; // Human assets/skills (MUST NOT BE EMPTY)\n        physical: string[]; // (MUST NOT BE EMPTY)\n        natural: string[]; // (MUST NOT BE EMPTY)\n        institutional: string[]; // (MUST NOT BE EMPTY)\n        economic: string[]; // (MUST NOT BE EMPTY)\n      };`,
+      problemTree: `      problemTree: { \n        mainProblem: string; // The core problem\n        causes: string[]; // Root causes (MUST NOT BE EMPTY)\n        effects: string[]; // Effects (MUST NOT BE EMPTY)\n      };`,
+      affinityDiagram: `      affinityDiagram: Array<{ \n        theme: string; // Emergent theme\n        insights: string[]; // Deep insights for this theme\n      }>; // (MUST NOT BE EMPTY)`,
+      howMightWeStatements: `      howMightWeStatements: string[]; // Actionable HMW statements (MUST NOT BE EMPTY)`,
+      priorityMatrix: `      priorityMatrix: Array<{ \n        project: string; // Name of project\n        impact: number; // 1 to 5 scale\n        feasibility: number; // 1 to 5 scale\n      }>; // (MUST NOT BE EMPTY)`,
+      sdgMapping: `      sdgMapping: Array<{ \n        sdg: string; // e.g. "SDG 6: Clean Water"\n        score: number; // 0 to 100 alignment score\n        reason: string; // Justification\n      }>; // (MUST NOT BE EMPTY)`,
+      communityPriorityIndex: `      communityPriorityIndex: Array<{ \n        problem: string; // Specific problem\n        score: number; // Priority score 0 to 100\n      }>; // (MUST NOT BE EMPTY)`,
+      implementationRoadmap: `      implementationRoadmap: Array<{ \n        month: string; // e.g. "Month 1"\n        activity: string; // Specific actionable step\n      }>; // (MUST NOT BE EMPTY)`,
+      impactAssessment: `      impactAssessment: Array<{ \n        metric: string; // Measurable indicator\n        baseline: string; // Current state\n        target: string; // Desired future state\n      }>; // (MUST NOT BE EMPTY)`
+    };
 
-    if (!analysisType || !referenceId) {
-      console.error("AI_ERROR: Missing required parameters 'analysisType' or 'referenceId'.");
-      return res.status(400).json({ error: 'Missing required parameters.' });
-    }
-
-    console.log(`Starting analysis. Type: ${analysisType}, Ref: ${referenceId}`);
-    console.log(`Received ${submissions.length} records for ${referenceId}`);
-
-    if (submissions.length === 0) {
-      console.error(`AI_ERROR: No survey data found for type: ${analysisType}, ref: ${referenceId}`);
-      return res.status(404).json({ error: 'Survey data could not be loaded. No records exist for this community/individual.' });
-    }
-
-    const safeAggregatedStats = extractAndAggregate(submissions);
-
-    let latestCommunityProfile = null;
-    const subsWithProfiles = submissions.filter(s => s.communityProfile);
-    if (subsWithProfiles.length > 0) {
-      latestCommunityProfile = subsWithProfiles[subsWithProfiles.length - 1].communityProfile;
-    }
+    const requestedTopics = selectedTopics && selectedTopics.length > 0 ? selectedTopics : Object.keys(TOPIC_SCHEMAS);
+    const interfaceBody = requestedTopics.map(t => TOPIC_SCHEMAS[t]).filter(Boolean).join('\n');
 
     const prompt = `
     Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
@@ -100,68 +91,7 @@ export default async function handler(req, res) {
     The JSON output MUST perfectly conform to the following TypeScript interface. All fields are REQUIRED.
 
     interface AnalysisOutput {
-      communityProfile: { 
-        description: string; // A detailed 3-paragraph summary of the community based on data
-        majorIssues: string[]; // List of specific issues identified (MUST NOT BE EMPTY)
-      };
-      stakeholderMap: { 
-        highHigh: string[]; // High power, high interest stakeholders (MUST NOT BE EMPTY)
-        highLow: string[]; // High power, low interest (MUST NOT BE EMPTY)
-        lowHigh: string[]; // Low power, high interest (MUST NOT BE EMPTY)
-        lowLow: string[]; // Low power, low interest (MUST NOT BE EMPTY)
-      };
-      empathyMap: { 
-        says: string[]; // Direct quotes or sentiments (MUST NOT BE EMPTY)
-        thinks: string[]; // (MUST NOT BE EMPTY)
-        does: string[]; // (MUST NOT BE EMPTY)
-        feels: string[]; // (MUST NOT BE EMPTY)
-      };
-      journeyMap: Array<{ 
-        stage: string; // Name of stage
-        experience: string; // Description of experience
-        painPoint: string; // Specific pain point
-        opportunity: string; // Opportunity for improvement
-      }>; // (MUST NOT BE EMPTY - Generate at least 3 stages)
-      communityAssetMap: { 
-        human: string[]; // Human assets/skills (MUST NOT BE EMPTY)
-        physical: string[]; // (MUST NOT BE EMPTY)
-        natural: string[]; // (MUST NOT BE EMPTY)
-        institutional: string[]; // (MUST NOT BE EMPTY)
-        economic: string[]; // (MUST NOT BE EMPTY)
-      };
-      problemTree: { 
-        mainProblem: string; // The core problem
-        causes: string[]; // Root causes (MUST NOT BE EMPTY)
-        effects: string[]; // Effects (MUST NOT BE EMPTY)
-      };
-      affinityDiagram: Array<{ 
-        theme: string; // Emergent theme
-        insights: string[]; // Deep insights for this theme
-      }>; // (MUST NOT BE EMPTY)
-      howMightWeStatements: string[]; // Actionable HMW statements (MUST NOT BE EMPTY)
-      priorityMatrix: Array<{ 
-        project: string; // Name of project
-        impact: number; // 1 to 5 scale
-        feasibility: number; // 1 to 5 scale
-      }>; // (MUST NOT BE EMPTY)
-      sdgMapping: Array<{ 
-        sdg: string; // e.g. "SDG 6: Clean Water"
-        score: number; // 0 to 100 alignment score
-        reason: string; // Justification
-      }>; // (MUST NOT BE EMPTY)
-      communityPriorityIndex: Array<{ 
-        problem: string; // Specific problem
-        score: number; // Priority score 0 to 100
-      }>; // (MUST NOT BE EMPTY)
-      implementationRoadmap: Array<{ 
-        month: string; // e.g. "Month 1"
-        activity: string; // Specific actionable step
-      }>; // (MUST NOT BE EMPTY)
-      impactAssessment: Array<{ 
-        metric: string; // Measurable indicator
-        baseline: string; // Current state
-        target: string; // Desired future state
-      }>; // (MUST NOT BE EMPTY)
+${interfaceBody}
     }
     
     Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
@@ -205,19 +135,19 @@ export default async function handler(req, res) {
       }
       
       // Safety defaults: Ensure all arrays exist so UI doesn't crash or show empty boxes completely if one field fails
-      aiResult.communityProfile = aiResult.communityProfile || { description: "No description generated.", majorIssues: ["Data insufficient to determine major issues."] };
-      aiResult.stakeholderMap = aiResult.stakeholderMap || { highHigh: [], highLow: [], lowHigh: [], lowLow: [] };
-      aiResult.empathyMap = aiResult.empathyMap || { says: [], thinks: [], does: [], feels: [] };
-      aiResult.journeyMap = aiResult.journeyMap || [];
-      aiResult.communityAssetMap = aiResult.communityAssetMap || { human: [], physical: [], natural: [], institutional: [], economic: [] };
-      aiResult.problemTree = aiResult.problemTree || { mainProblem: "", causes: [], effects: [] };
-      aiResult.affinityDiagram = aiResult.affinityDiagram || [];
-      aiResult.howMightWeStatements = aiResult.howMightWeStatements || [];
-      aiResult.priorityMatrix = aiResult.priorityMatrix || [];
-      aiResult.sdgMapping = aiResult.sdgMapping || [];
-      aiResult.communityPriorityIndex = aiResult.communityPriorityIndex || [];
-      aiResult.implementationRoadmap = aiResult.implementationRoadmap || [];
-      aiResult.impactAssessment = aiResult.impactAssessment || [];
+      if (requestedTopics.includes('communityProfile')) aiResult.communityProfile = aiResult.communityProfile || { description: "No description generated.", majorIssues: ["Data insufficient to determine major issues."] };
+      if (requestedTopics.includes('stakeholderMap')) aiResult.stakeholderMap = aiResult.stakeholderMap || { highHigh: [], highLow: [], lowHigh: [], lowLow: [] };
+      if (requestedTopics.includes('empathyMap')) aiResult.empathyMap = aiResult.empathyMap || { says: [], thinks: [], does: [], feels: [] };
+      if (requestedTopics.includes('journeyMap')) aiResult.journeyMap = aiResult.journeyMap || [];
+      if (requestedTopics.includes('communityAssetMap')) aiResult.communityAssetMap = aiResult.communityAssetMap || { human: [], physical: [], natural: [], institutional: [], economic: [] };
+      if (requestedTopics.includes('problemTree')) aiResult.problemTree = aiResult.problemTree || { mainProblem: "", causes: [], effects: [] };
+      if (requestedTopics.includes('affinityDiagram')) aiResult.affinityDiagram = aiResult.affinityDiagram || [];
+      if (requestedTopics.includes('howMightWeStatements')) aiResult.howMightWeStatements = aiResult.howMightWeStatements || [];
+      if (requestedTopics.includes('priorityMatrix')) aiResult.priorityMatrix = aiResult.priorityMatrix || [];
+      if (requestedTopics.includes('sdgMapping')) aiResult.sdgMapping = aiResult.sdgMapping || [];
+      if (requestedTopics.includes('communityPriorityIndex')) aiResult.communityPriorityIndex = aiResult.communityPriorityIndex || [];
+      if (requestedTopics.includes('implementationRoadmap')) aiResult.implementationRoadmap = aiResult.implementationRoadmap || [];
+      if (requestedTopics.includes('impactAssessment')) aiResult.impactAssessment = aiResult.impactAssessment || [];
       
     } catch (parseError) {
       console.error("AI_ERROR: Failed to parse Gemini response as JSON.", parseError);
