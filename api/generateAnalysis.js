@@ -101,26 +101,77 @@ export default async function handler(req, res) {
     Total Respondents: ${safeAggregatedStats.totalResponses}
     Aggregated Survey Data: ${JSON.stringify(safeAggregatedStats)}
     
-    Generate a complete Design Thinking analysis formatted STRICTLY as JSON with exactly this structure. 
-    IMPORTANT INSTRUCTION: Do NOT output literal "..." or template placeholders. You MUST replace every "..." with your actual detailed, highly specific insights and comprehensive analysis derived directly from the Aggregated Survey Data. 
+    Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
+    IMPORTANT: You MUST generate actual, deep insights derived from the Aggregated Survey Data. Do NOT output placeholder text.
     
-    {
-      "communityProfile": { "description": "Write a detailed 3-paragraph summary of the community based on the data", "majorIssues": ["Identify specific issue 1", "Identify specific issue 2"] },
-      "stakeholderMap": { "highHigh": ["Specific stakeholder 1", "Specific stakeholder 2"], "highLow": ["..."], "lowHigh": ["..."], "lowLow": ["..."] },
-      "empathyMap": { "says": ["Direct quote or sentiment 1", "Quote 2"], "thinks": ["..."], "does": ["..."], "feels": ["..."] },
-      "journeyMap": [{ "stage": "Name of stage (e.g. Seeking Water)", "experience": "Detailed description of experience", "painPoint": "Specific pain point", "opportunity": "Specific opportunity for improvement" }],
-      "communityAssetMap": { "human": ["Specific skill/asset"], "physical": ["Specific physical asset"], "natural": ["..."], "institutional": ["..."], "economic": ["..."] },
-      "problemTree": { "mainProblem": "The single most critical core problem", "causes": ["Root cause 1", "Root cause 2"], "effects": ["Immediate effect 1", "Long-term effect 2"] },
-      "affinityDiagram": [{ "theme": "Name of emergent theme", "insights": ["Deep insight 1", "Deep insight 2"] }],
-      "howMightWeStatements": ["How might we [action] so that [outcome]?", "How might we..."],
-      "priorityMatrix": [{ "project": "Name of actionable project/intervention", "impact": 5, "feasibility": 4 }],
-      "sdgMapping": [{ "sdg": "SDG 6: Clean Water", "score": 88, "reason": "Detailed justification based on data" }],
-      "communityPriorityIndex": [{ "problem": "Specific problem", "score": 91 }],
-      "implementationRoadmap": [{ "month": "Month 1", "activity": "Specific actionable step" }],
-      "impactAssessment": [{ "metric": "Specific measurable indicator", "baseline": "Current state", "target": "Desired future state" }]
+    The JSON output MUST perfectly conform to the following TypeScript interface:
+
+    interface AnalysisOutput {
+      communityProfile: { 
+        description: string; // A detailed 3-paragraph summary of the community based on data
+        majorIssues: string[]; // List of specific issues identified
+      };
+      stakeholderMap: { 
+        highHigh: string[]; // High power, high interest stakeholders
+        highLow: string[]; // High power, low interest
+        lowHigh: string[]; // Low power, high interest
+        lowLow: string[]; // Low power, low interest
+      };
+      empathyMap: { 
+        says: string[]; // Direct quotes or sentiments
+        thinks: string[]; 
+        does: string[]; 
+        feels: string[]; 
+      };
+      journeyMap: Array<{ 
+        stage: string; // Name of stage
+        experience: string; // Description of experience
+        painPoint: string; // Specific pain point
+        opportunity: string; // Opportunity for improvement
+      }>;
+      communityAssetMap: { 
+        human: string[]; // Human assets/skills
+        physical: string[]; 
+        natural: string[]; 
+        institutional: string[]; 
+        economic: string[]; 
+      };
+      problemTree: { 
+        mainProblem: string; // The core problem
+        causes: string[]; // Root causes
+        effects: string[]; // Effects
+      };
+      affinityDiagram: Array<{ 
+        theme: string; // Emergent theme
+        insights: string[]; // Deep insights for this theme
+      }>;
+      howMightWeStatements: string[]; // Actionable HMW statements
+      priorityMatrix: Array<{ 
+        project: string; // Name of project
+        impact: number; // 1 to 5 scale
+        feasibility: number; // 1 to 5 scale
+      }>;
+      sdgMapping: Array<{ 
+        sdg: string; // e.g. "SDG 6: Clean Water"
+        score: number; // 0 to 100 alignment score
+        reason: string; // Justification
+      }>;
+      communityPriorityIndex: Array<{ 
+        problem: string; // Specific problem
+        score: number; // Priority score 0 to 100
+      }>;
+      implementationRoadmap: Array<{ 
+        month: string; // e.g. "Month 1"
+        activity: string; // Specific actionable step
+      }>;
+      impactAssessment: Array<{ 
+        metric: string; // Measurable indicator
+        baseline: string; // Current state
+        target: string; // Desired future state
+      }>;
     }
     
-    Ensure all JSON keys exactly match this schema. Generate multiple items for arrays where appropriate. Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
+    Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
     `;
 
     console.log(`Contacting Gemini SDK with model: ${modelName}`);
