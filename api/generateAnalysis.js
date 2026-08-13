@@ -242,7 +242,7 @@ export default async function handler(req, res) {
     const docId = `${analysisType}_${referenceId}`;
     console.log(`AI Analysis complete for ID: ${docId}`);
     
-    return res.status(200).json({ data: { success: true, docId: docId, analysis: analysisDoc } });
+    return res.status(200).json({ data: aiResult });
 
   } catch (error) {
     console.error("AI_CRITICAL_ERROR: Unhandled exception in generateAiAnalysis:", error);
