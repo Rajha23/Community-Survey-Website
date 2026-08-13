@@ -678,9 +678,11 @@ export default function AdminDashboard({ user, userData }) {
   };
 
   const renderSurveys = () => {
-    // Group surveys by communityName
+    // Group surveys by communityName and sort by date descending
     const groupedSurveys = {};
-    surveyRecords.forEach(s => {
+    const sortedRecords = [...surveyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    sortedRecords.forEach(s => {
       const commName = s.communityName || 'Unknown Community';
       if (!groupedSurveys[commName]) groupedSurveys[commName] = [];
       groupedSurveys[commName].push(s);
