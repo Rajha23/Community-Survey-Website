@@ -195,8 +195,33 @@ export default async function handler(req, res) {
     try {
       const cleanJsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
       aiResult = JSON.parse(cleanJsonStr);
+      
+      // Unwrap if Gemini incorrectly nested it under the interface name
+      if (aiResult.AnalysisOutput) {
+        aiResult = aiResult.AnalysisOutput;
+      }
+      if (aiResult.analysisOutput) {
+        aiResult = aiResult.analysisOutput;
+      }
+      
+      // Safety defaults: Ensure all arrays exist so UI doesn't crash or show empty boxes completely if one field fails
+      aiResult.communityProfile = aiResult.communityProfile || { description: "No description generated.", majorIssues: ["Data insufficient to determine major issues."] };
+      aiResult.stakeholderMap = aiResult.stakeholderMap || { highHigh: [], highLow: [], lowHigh: [], lowLow: [] };
+      aiResult.empathyMap = aiResult.empathyMap || { says: [], thinks: [], does: [], feels: [] };
+      aiResult.journeyMap = aiResult.journeyMap || [];
+      aiResult.communityAssetMap = aiResult.communityAssetMap || { human: [], physical: [], natural: [], institutional: [], economic: [] };
+      aiResult.problemTree = aiResult.problemTree || { mainProblem: "", causes: [], effects: [] };
+      aiResult.affinityDiagram = aiResult.affinityDiagram || [];
+      aiResult.howMightWeStatements = aiResult.howMightWeStatements || [];
+      aiResult.priorityMatrix = aiResult.priorityMatrix || [];
+      aiResult.sdgMapping = aiResult.sdgMapping || [];
+      aiResult.communityPriorityIndex = aiResult.communityPriorityIndex || [];
+      aiResult.implementationRoadmap = aiResult.implementationRoadmap || [];
+      aiResult.impactAssessment = aiResult.impactAssessment || [];
+      
     } catch (parseError) {
       console.error("AI_ERROR: Failed to parse Gemini response as JSON.", parseError);
+      console.error("Raw response text was:", responseText);
       return res.status(500).json({ error: 'AI response could not be parsed. The AI output was malformed.' });
     }
 
