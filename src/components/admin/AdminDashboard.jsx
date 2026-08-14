@@ -132,6 +132,12 @@ export default function AdminDashboard({ user, userData }) {
     setAiError('');
     setAiData(null);
 
+    if (selectedAiTopics.length === 0) {
+      setAiError("Please select at least one Analysis Topic from the list.");
+      setAiLoading(false);
+      return;
+    }
+
     try {
       let submissions = [];
       
