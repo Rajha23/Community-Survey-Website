@@ -358,7 +358,16 @@ export default function StudentDashboard({ user, userData }) {
           </div>
           <h3 className="text-3xl font-serif text-white mb-4">Survey Completed!</h3>
           <p className="text-text-muted text-lg mb-8">Thank you for your valuable input. Your responses have been safely recorded.</p>
-          <button onClick={() => setStep('personal-details')} className="px-6 py-2.5 border border-white/20 text-white hover:bg-white/5 rounded-lg transition-all">
+          <button 
+            onClick={() => {
+              setSurveyAnswers({});
+              setSurveyOtherAnswers({});
+              setCurrentPage(1);
+              setSelectedCommunityId('');
+              setStep('personal-details');
+            }} 
+            className="px-6 py-2.5 border border-white/20 text-white hover:bg-white/5 rounded-lg transition-all"
+          >
             Return to Dashboard
           </button>
         </div>

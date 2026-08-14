@@ -4,6 +4,7 @@ import { auth, db, secondaryAuth } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
 import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar } from 'lucide-react';
+import { surveyQuestions } from '../../lib/surveyData';
 
 const AI_TOPICS = [
   { id: 'communityProfile', label: 'Community Profile' },
@@ -800,14 +801,19 @@ export default function AdminDashboard({ user, userData }) {
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <h4 className="text-brand-green font-bold text-sm mb-3">Survey Responses</h4>
                   <div className="space-y-4">
-                    {Object.entries(selectedSurveyView.responses || {}).map(([question, answer], idx) => (
-                      <div key={idx} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                        <div className="text-white/60 text-xs mb-1 font-mono uppercase">{question}</div>
-                        <div className="text-white text-sm">
-                          {Array.isArray(answer) ? answer.join(', ') : (typeof answer === 'object' ? JSON.stringify(answer) : answer.toString())}
+                    {surveyQuestions.map((q, idx) => {
+                      const answer = selectedSurveyView.responses?.[q.id];
+                      if (answer === undefined || answer === null || answer === '') return null;
+                      
+                      return (
+                        <div key={q.id} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                          <div className="text-white/60 text-xs mb-1 font-mono uppercase">{q.text}</div>
+                          <div className="text-white text-sm">
+                            {Array.isArray(answer) ? answer.join(', ') : (typeof answer === 'object' ? JSON.stringify(answer) : answer.toString())}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
