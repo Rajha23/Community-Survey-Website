@@ -45,6 +45,7 @@ export default function AdminDashboard({ user, userData }) {
   // AI Intelligence
   const [aiCommunityId, setAiCommunityId] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgressText, setAiProgressText] = useState('');
   const [aiError, setAiError] = useState('');
   const [aiData, setAiData] = useState(null);
   const [selectedAiSurveys, setSelectedAiSurveys] = useState([]);
@@ -164,28 +165,72 @@ export default function AdminDashboard({ user, userData }) {
         throw new Error("No survey records found for this selection.");
       }
 
-      const response = await fetch('/api/generateAnalysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          data: {
-            submissions,
-            analysisType: type,
-            referenceId: referenceId,
-            selectedTopics: selectedAiTopics
-          }
-        })
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to generate AI analysis.');
+      // Chunking logic
+      const chunkSize = 3;
+      const chunks = [];
+      for (let i = 0; i < selectedAiTopics.length; i += chunkSize) {
+        chunks.push(selectedAiTopics.slice(i, i + chunkSize));
       }
 
-      setAiData(result.data);
+      let mergedData = null;
+      let completedTopics = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        setAiProgressText(`Generating ${completedTopics + 1} to ${Math.min(completedTopics + chunk.length, selectedAiTopics.length)} of ${selectedAiTopics.length} topics...`);
+        
+        let success = false;
+        let retries = 2; // max 3 attempts per chunk
+        while (!success && retries >= 0) {
+          try {
+            const response = await fetch('/api/generateAnalysis', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                data: {
+                  submissions,
+                  analysisType: type,
+                  referenceId: referenceId,
+                  selectedTopics: chunk
+                }
+              })
+            });
+
+            // If we get an HTML timeout error, it will throw here
+            const result = await response.json().catch(() => {
+              throw new Error("Server timeout. Please try again or select fewer topics.");
+            });
+            
+            if (!response.ok) {
+              throw new Error(result.error || 'Failed to generate AI analysis.');
+            }
+
+            if (!mergedData) {
+              mergedData = result.data;
+            } else {
+              // Merge object fields
+              mergedData = { ...mergedData, ...result.data };
+            }
+            
+            // Update UI progressively
+            setAiData({ ...mergedData });
+            success = true;
+          } catch (e) {
+            // Check if it's a transient Google API error or a Vercel 504 Timeout
+            if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout')) {
+              retries--;
+              if (retries < 0) throw e;
+              setAiProgressText(`Server busy. Retrying... (${retries + 1} attempts left)`);
+              await new Promise(r => setTimeout(r, 3000));
+            } else {
+              throw e;
+            }
+          }
+        }
+        completedTopics += chunk.length;
+      }
+      setAiProgressText('Analysis Complete!');
+      setTimeout(() => setAiProgressText(''), 2000);
     } catch (err) {
       setAiError(err.message || 'An unknown error occurred.');
     } finally {
@@ -312,7 +357,7 @@ export default function AdminDashboard({ user, userData }) {
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-brand-yellow animate-spin mb-4" />
           <h3 className="text-xl text-white font-serif">Analyzing Data with Gemini AI...</h3>
-          <p className="text-text-muted mt-2">Preparing survey data and generating insights.</p>
+          <p className="text-text-muted mt-2">{aiProgressText || 'Preparing survey data and generating insights.'}</p>
         </div>
       );
     }
