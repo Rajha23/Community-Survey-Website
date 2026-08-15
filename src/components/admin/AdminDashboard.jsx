@@ -166,8 +166,8 @@ export default function AdminDashboard({ user, userData }) {
         throw new Error("No survey records found for this selection.");
       }
 
-      // Chunking logic
-      const chunkSize = 1;
+      // Chunking logic (bypassing Vercel allows us to process all topics in one request to avoid Google API Rate Limits)
+      const chunkSize = 15;
       const chunks = [];
       for (let i = 0; i < selectedAiTopics.length; i += chunkSize) {
         chunks.push(selectedAiTopics.slice(i, i + chunkSize));
