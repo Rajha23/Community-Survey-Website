@@ -20,12 +20,55 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
   });
   
   const [saving, setSaving] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handlePasswordReset = async () => {
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to change this user's password?")) {
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const response = await fetch('/api/changePassword', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uid: profile?.uid,
+          newPassword: newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change password');
+      }
+
+      alert("Password changed successfully!");
+      setShowPasswordInput(false);
+      setNewPassword('');
+    } catch (err) {
+      console.error("Password reset error:", err);
+      alert(err.message);
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -141,6 +184,45 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
                   placeholder="Min 6 characters"
                   className="w-full bg-brand-bg border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow"
                 />
+              </div>
+            )}
+
+            {!isNew && (
+              <div className="md:col-span-2 border border-white/5 rounded-xl p-4 bg-white/5 mt-2">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Change Password</h4>
+                    <p className="text-xs text-text-muted">Force update the password for this user.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordInput(!showPasswordInput)}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    {showPasswordInput ? 'Cancel' : 'Change Password'}
+                  </button>
+                </div>
+                
+                {showPasswordInput && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min 6 chars)"
+                      className="flex-1 bg-brand-bg border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-400 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePasswordReset}
+                      disabled={resettingPassword || newPassword.length < 6}
+                      className="px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center whitespace-nowrap"
+                    >
+                      {resettingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Confirm Reset
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
