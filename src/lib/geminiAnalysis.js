@@ -97,7 +97,7 @@ ${interfaceBody}
     }
   };
 
-  const modelName = import.meta.env.VITE_GEMINI_MODEL || 'gemini-flash-latest';
+  const modelName = import.meta.env.VITE_GEMINI_MODEL || 'gemini-flash-lite-latest';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
