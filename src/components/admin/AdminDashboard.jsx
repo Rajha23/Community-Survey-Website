@@ -166,7 +166,7 @@ export default function AdminDashboard({ user, userData }) {
       }
 
       // Chunking logic
-      const chunkSize = 3;
+      const chunkSize = 1;
       const chunks = [];
       for (let i = 0; i < selectedAiTopics.length; i += chunkSize) {
         chunks.push(selectedAiTopics.slice(i, i + chunkSize));
