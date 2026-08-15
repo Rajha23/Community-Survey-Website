@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     const { analysisType, referenceId, communityData, submissions = [], selectedTopics } = data;
     
     const apiKey = process.env.GEMINI_API_KEY;
-    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-flash-latest';
     
     if (!apiKey) {
       console.error("AI_ERROR: GEMINI_API_KEY missing from environment.");
