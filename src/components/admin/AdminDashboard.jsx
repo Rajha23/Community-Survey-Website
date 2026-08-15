@@ -180,7 +180,8 @@ export default function AdminDashboard({ user, userData }) {
         setAiProgressText(`Generating ${completedTopics + 1} to ${Math.min(completedTopics + chunk.length, selectedAiTopics.length)} of ${selectedAiTopics.length} topics...`);
         
         let success = false;
-        let retries = 2; // max 3 attempts per chunk
+        let retries = 4; // 5 total attempts
+        let delay = 3000;
         while (!success && retries >= 0) {
           try {
             const response = await fetch('/api/generateAnalysis', {
@@ -217,11 +218,12 @@ export default function AdminDashboard({ user, userData }) {
             success = true;
           } catch (e) {
             // Check if it's a transient Google API error or a Vercel 504 Timeout
-            if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout')) {
+            if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout') || e.message.includes('Rate Limit')) {
               retries--;
               if (retries < 0) throw e;
-              setAiProgressText(`Server busy. Retrying... (${retries + 1} attempts left)`);
-              await new Promise(r => setTimeout(r, 3000));
+              setAiProgressText(`Google Servers High Demand. Retrying in ${delay/1000}s... (${retries + 1} attempts left)`);
+              await new Promise(r => setTimeout(r, delay));
+              delay = Math.min(delay * 1.5, 10000); // exponential backoff, max 10s
             } else {
               throw e;
             }
