@@ -446,42 +446,33 @@ export default function AdminDashboard({ user, userData }) {
             
             {aiData.communityPriorityIndex && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 md:col-span-2">
-                <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Priority Index (CPI)</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-white">
-                    <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
-                      <tr>
-                        <th className="py-3 px-4 rounded-tl-lg">Identified Problem</th>
-                        <th className="py-3 px-4 text-center">Score</th>
-                        <th className="py-3 px-4 rounded-tr-lg">Priority Level</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {(aiData.communityPriorityIndex || []).map((item, i) => {
-                        const isCritical = item.score > 80;
-                        const isHigh = item.score > 50;
-                        const badgeColor = isCritical ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
-                                         isHigh ? 'bg-brand-yellow/20 text-brand-yellow border-brand-yellow/30' : 
-                                         'bg-brand-green/20 text-brand-green border-brand-green/30';
-                        const priorityText = isCritical ? 'Critical' : isHigh ? 'High' : 'Moderate';
-                        
-                        return (
-                          <tr key={i} className="hover:bg-white/5 transition-colors group">
-                            <td className="py-4 px-4 font-medium text-white">{item.problem}</td>
-                            <td className="py-4 px-4 text-center">
-                              <span className="font-bold text-lg">{item.score}</span>
-                              <span className="text-xs text-text-muted">/100</span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeColor}`}>
-                                {priorityText}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <h4 className="text-text-muted text-sm uppercase font-mono mb-6">Priority Index (CPI)</h4>
+                <div className="space-y-5">
+                  {(aiData.communityPriorityIndex || []).map((item, i) => {
+                    const isCritical = item.score > 80;
+                    const isHigh = item.score > 50;
+                    const barColor = isCritical ? 'bg-red-500' : isHigh ? 'bg-brand-yellow' : 'bg-brand-green';
+                    
+                    return (
+                      <div key={i} className="relative pt-1">
+                        <div className="flex mb-2 items-center justify-between">
+                          <div>
+                            <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-white bg-black/40 border border-white/10">
+                              {item.problem}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-semibold inline-block text-white">
+                              {item.score}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-white/10">
+                          <div style={{ width: `${item.score}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${barColor}`}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -613,16 +604,20 @@ export default function AdminDashboard({ user, userData }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 rounded-xl p-4">
-                    <h5 className="text-text-muted font-bold text-sm mb-2 text-center">Causes (Roots)</h5>
-                    <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
-                      {(aiData.problemTree.causes || []).map((c, i) => <li key={i}>{c}</li>)}
-                    </ul>
+                    <h5 className="text-text-muted font-bold text-sm mb-3 text-center uppercase tracking-wider">Causes (Roots)</h5>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {(aiData.problemTree.causes || []).map((c, i) => (
+                        <span key={i} className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/90 border border-white/5">{c}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <h5 className="text-text-muted font-bold text-sm mb-2 text-center">Effects (Branches)</h5>
-                    <ul className="list-disc pl-4 space-y-1 text-sm text-white/70">
-                      {(aiData.problemTree.effects || []).map((e, i) => <li key={i}>{e}</li>)}
-                    </ul>
+                  <div className="bg-white/5 rounded-xl p-5 border border-white/5">
+                    <h5 className="text-text-muted font-bold text-sm mb-3 text-center uppercase tracking-wider">Effects (Branches)</h5>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {(aiData.problemTree.effects || []).map((e, i) => (
+                        <span key={i} className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/90 border border-white/5">{e}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -695,14 +690,17 @@ export default function AdminDashboard({ user, userData }) {
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <h4 className="text-text-muted text-sm uppercase font-mono mb-4">SDG Mapping Dashboard</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                   {(aiData.sdgMapping || []).map((sdg, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h5 className="font-bold text-white text-sm">{sdg.sdg}</h5>
-                        <span className="text-xs bg-brand-green/20 text-brand-green px-2 py-0.5 rounded-full border border-brand-green/30">Score: {sdg.score}</span>
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-5 relative overflow-hidden">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-bold text-white text-sm pr-2">{sdg.sdg}</h5>
+                        <span className="text-xl font-black text-brand-green">{sdg.score}</span>
                       </div>
-                      <p className="text-xs text-white/70">{sdg.reason}</p>
+                      <div className="overflow-hidden h-1.5 mb-3 text-xs flex rounded bg-white/10">
+                        <div style={{ width: `${sdg.score}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-brand-green"></div>
+                      </div>
+                      <p className="text-xs text-white/70 italic">"{sdg.reason}"</p>
                     </div>
                   ))}
                 </div>
@@ -735,25 +733,25 @@ export default function AdminDashboard({ user, userData }) {
             {aiData.impactAssessment && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Before-and-After Impact Assessment</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-white">
-                    <thead className="text-xs text-text-muted uppercase border-b border-white/10 bg-black/20">
-                      <tr>
-                        <th className="py-3 px-4 rounded-tl-lg">Metric</th>
-                        <th className="py-3 px-4 text-red-300">Baseline (Before)</th>
-                        <th className="py-3 px-4 text-brand-green rounded-tr-lg">Target (After)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {(aiData.impactAssessment || []).map((impact, i) => (
-                        <tr key={i} className="hover:bg-white/5 transition-colors">
-                          <td className="py-4 px-4 font-medium text-white">{impact.metric}</td>
-                          <td className="py-4 px-4 text-white/70">{impact.baseline}</td>
-                          <td className="py-4 px-4 text-brand-green/90 font-medium">{impact.target}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(aiData.impactAssessment || []).map((impact, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col justify-between">
+                      <h5 className="font-bold text-white text-sm mb-4 text-center">{impact.metric}</h5>
+                      <div className="flex justify-between items-center px-4">
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Baseline</p>
+                          <p className="text-xl font-black text-red-400">{impact.baseline}</p>
+                        </div>
+                        <div className="text-white/20">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Target</p>
+                          <p className="text-xl font-black text-brand-green">{impact.target}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
