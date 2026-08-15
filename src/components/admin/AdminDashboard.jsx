@@ -209,7 +209,8 @@ export default function AdminDashboard({ user, userData }) {
             if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout') || e.message.includes('Rate Limit') || e.message.includes('UNAVAILABLE')) {
               retries--;
               if (retries < 0) throw e;
-              setAiProgressText(`Google Servers High Demand. Retrying in ${delay/1000}s... (${retries + 1} attempts left)`);
+              const isRateLimit = e.message.includes('Rate Limit');
+              setAiProgressText(`${isRateLimit ? 'Rate limit reached (15/min).' : 'Google servers busy.'} Retrying in ${Math.round(delay/1000)}s... (${retries + 1} attempts left)`);
               await new Promise(r => setTimeout(r, delay));
               delay = Math.min(delay * 1.5, 10000); // exponential backoff, max 10s
             } else {
