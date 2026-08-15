@@ -5,6 +5,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
 import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
+import { generateClientSideAnalysis } from '../../lib/geminiAnalysis';
 
 const AI_TOPICS = [
   { id: 'communityProfile', label: 'Community Profile' },
@@ -184,33 +185,20 @@ export default function AdminDashboard({ user, userData }) {
         let delay = 3000;
         while (!success && retries >= 0) {
           try {
-            const response = await fetch('/api/generateAnalysis', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                data: {
-                  submissions,
-                  analysisType: type,
-                  referenceId: referenceId,
-                  selectedTopics: chunk
-                }
-              })
+            // Client-side AI generation - bypasses Vercel 10s timeout
+            const resultData = await generateClientSideAnalysis({
+              analysisType: type,
+              referenceId: referenceId,
+              communityData: type === 'community' ? communities.find(c => c.id === referenceId) : null,
+              submissions,
+              selectedTopics: chunk
             });
-
-            // If we get an HTML timeout error, it will throw here
-            const result = await response.json().catch(() => {
-              throw new Error("Server timeout. Please try again or select fewer topics.");
-            });
-            
-            if (!response.ok) {
-              throw new Error(result.error || 'Failed to generate AI analysis.');
-            }
 
             if (!mergedData) {
-              mergedData = result.data;
+              mergedData = resultData;
             } else {
               // Merge object fields
-              mergedData = { ...mergedData, ...result.data };
+              mergedData = { ...mergedData, ...resultData };
             }
             
             // Update UI progressively
@@ -218,7 +206,7 @@ export default function AdminDashboard({ user, userData }) {
             success = true;
           } catch (e) {
             // Check if it's a transient Google API error or a Vercel 504 Timeout
-            if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout') || e.message.includes('Rate Limit')) {
+            if (e.message.includes('demand') || e.message.includes('503') || e.message.includes('timeout') || e.message.includes('Rate Limit') || e.message.includes('UNAVAILABLE')) {
               retries--;
               if (retries < 0) throw e;
               setAiProgressText(`Google Servers High Demand. Retrying in ${delay/1000}s... (${retries + 1} attempts left)`);
