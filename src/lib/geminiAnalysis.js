@@ -53,7 +53,8 @@ export const generateClientSideAnalysis = async ({ analysisType, referenceId, co
     sdgMapping: `      sdgMapping: Array<{ \n        sdg: string; // e.g. "SDG 6: Clean Water"\n        score: number; // 0 to 100 alignment score\n        reason: string; // Justification\n      }>; // (MUST NOT BE EMPTY)`,
     communityPriorityIndex: `      communityPriorityIndex: Array<{ \n        problem: string; // Specific problem\n        score: number; // Priority score 0 to 100\n      }>; // (MUST NOT BE EMPTY)`,
     implementationRoadmap: `      implementationRoadmap: Array<{ \n        month: string; // e.g. "Month 1"\n        activity: string; // Specific actionable step\n      }>; // (MUST NOT BE EMPTY)`,
-    impactAssessment: `      impactAssessment: Array<{ \n        metric: string; // Measurable indicator\n        baseline: string; // Current state\n        target: string; // Desired future state\n      }>; // (MUST NOT BE EMPTY)`
+    impactAssessment: `      impactAssessment: Array<{ \n        metric: string; // Measurable indicator\n        baseline: string; // Current state\n        target: string; // Desired future state\n      }>; // (MUST NOT BE EMPTY)`,
+    graphicalData: `      graphicalData: Array<{ \n        title: string; // e.g., "Top Demographics", "Water Scarcity Severity"\n        type: "bar" | "pie"; // Must be bar or pie\n        data: Array<{ name: string; value: number }>; // Real statistical data derived from survey responses\n      }>; // Generate exactly 3 insightful charts based on numerical survey data.`
   };
 
   const requestedTopics = selectedTopics && selectedTopics.length > 0 ? selectedTopics : Object.keys(TOPIC_SCHEMAS);
@@ -146,6 +147,7 @@ ${interfaceBody}
     if (requestedTopics.includes('communityPriorityIndex')) aiResult.communityPriorityIndex = aiResult.communityPriorityIndex || [];
     if (requestedTopics.includes('implementationRoadmap')) aiResult.implementationRoadmap = aiResult.implementationRoadmap || [];
     if (requestedTopics.includes('impactAssessment')) aiResult.impactAssessment = aiResult.impactAssessment || [];
+    if (requestedTopics.includes('graphicalData')) aiResult.graphicalData = aiResult.graphicalData || [];
     
   } catch (parseError) {
     throw new Error('AI response could not be parsed. The AI output was malformed.');

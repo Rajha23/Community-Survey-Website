@@ -6,9 +6,12 @@ import ProfileModal from './ProfileModal';
 import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
 import { generateClientSideAnalysis } from '../../lib/geminiAnalysis';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+
+const COLORS = ['#00E5FF', '#FFB800', '#FF3366', '#00E5FF80', '#FFB80080', '#FF336680'];
 
 const AI_TOPICS = [
-  { id: 'communityProfile', label: 'Community Profile' },
+  { id: 'graphicalData', label: 'Statistical Charts (Graphs)' },
   { id: 'stakeholderMap', label: 'Stakeholder Map' },
   { id: 'empathyMap', label: 'Empathy Map' },
   { id: 'journeyMap', label: 'Journey Map' },
@@ -384,7 +387,53 @@ export default function AdminDashboard({ user, userData }) {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {aiData.graphicalData && aiData.graphicalData.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              {aiData.graphicalData.map((chart, idx) => (
+                <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-lg">
+                  <h4 className="text-text-muted text-sm uppercase font-mono mb-4 text-center">{chart.title}</h4>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      {chart.type === 'bar' ? (
+                        <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <XAxis dataKey="name" stroke="#a3a3a3" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#a3a3a3" fontSize={12} tickLine={false} axisLine={false} />
+                          <RechartsTooltip 
+                            contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                            itemStyle={{ color: '#00E5FF' }}
+                          />
+                          <Bar dataKey="value" fill="#00E5FF" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      ) : (
+                        <PieChart>
+                          <Pie
+                            data={chart.data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {chart.data.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip 
+                            contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                            itemStyle={{ color: '#fff' }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }} />
+                        </PieChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
             {aiData.communityProfile && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <h4 className="text-text-muted text-sm uppercase font-mono mb-4">Community Profile</h4>
