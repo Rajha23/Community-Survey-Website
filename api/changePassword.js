@@ -1,8 +1,7 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import admin from 'firebase-admin';
 
 // Initialize Firebase Admin if not already initialized
-if (!getApps().length) {
+if (!admin.apps.length) {
   try {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountJson) {
@@ -10,8 +9,8 @@ if (!getApps().length) {
     } else {
       const serviceAccount = JSON.parse(serviceAccountJson);
       
-      initializeApp({
-        credential: cert(serviceAccount)
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
       });
     }
   } catch (error) {
@@ -26,7 +25,7 @@ export default async function handler(req, res) {
 
   try {
     // Check if Firebase Admin is initialized
-    if (!getApps().length) {
+    if (!admin.apps.length) {
        return res.status(500).json({ error: 'Firebase Admin SDK is not properly initialized on the server. Please check FIREBASE_SERVICE_ACCOUNT env variable.' });
     }
 
@@ -41,7 +40,7 @@ export default async function handler(req, res) {
     }
 
     // Update the user's password using the Admin SDK
-    const userRecord = await getAuth().updateUser(uid, {
+    const userRecord = await admin.auth().updateUser(uid, {
       password: newPassword,
     });
 
