@@ -328,19 +328,26 @@ export default function StudentDashboard({ user, userData }) {
               {currentPage < totalPages ? (
                 <button 
                   type="button" 
+                  disabled={currentQuestions.some(q => {
+                    const ans = surveyAnswers[q.id];
+                    return !ans || (Array.isArray(ans) && ans.length === 0);
+                  })}
                   onClick={() => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     setCurrentPage(p => Math.min(totalPages, p + 1));
                   }}
-                  className="flex items-center px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-all"
+                  className="flex items-center px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Next <ChevronRight className="w-5 h-5 ml-1" />
                 </button>
               ) : (
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="flex items-center px-8 py-3 bg-brand-yellow text-black hover:bg-[#F9EBD0] rounded-xl shadow-lg shadow-brand-yellow/20 transition-all font-bold disabled:opacity-50"
+                  disabled={saving || currentQuestions.some(q => {
+                    const ans = surveyAnswers[q.id];
+                    return !ans || (Array.isArray(ans) && ans.length === 0);
+                  })}
+                  className="flex items-center px-8 py-3 bg-brand-yellow text-black hover:bg-[#F9EBD0] rounded-xl shadow-lg shadow-brand-yellow/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? <Loader2 className="w-6 h-6 mr-3 animate-spin" /> : <Send className="w-6 h-6 mr-3" />}
                   Submit Survey

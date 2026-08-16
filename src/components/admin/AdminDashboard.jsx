@@ -892,13 +892,16 @@ export default function AdminDashboard({ user, userData }) {
                   <div className="space-y-4">
                     {surveyQuestions.map((q, idx) => {
                       const answer = selectedSurveyView.responses?.[q.id];
-                      if (answer === undefined || answer === null || answer === '') return null;
+                      const isEmpty = answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0);
                       
                       return (
                         <div key={q.id} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
                           <div className="text-white/60 text-xs mb-1 font-mono uppercase">{q.text}</div>
-                          <div className="text-white text-sm">
-                            {Array.isArray(answer) ? answer.join(', ') : (typeof answer === 'object' ? JSON.stringify(answer) : answer.toString())}
+                          <div className={`text-sm ${isEmpty ? 'text-white/30 italic' : 'text-white'}`}>
+                            {isEmpty 
+                              ? 'Not answered' 
+                              : (Array.isArray(answer) ? answer.join(', ') : (typeof answer === 'object' ? JSON.stringify(answer) : answer.toString()))
+                            }
                           </div>
                         </div>
                       );
