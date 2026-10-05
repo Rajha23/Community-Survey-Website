@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, addDoc, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, addDoc, query, where, deleteDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, secondaryAuth } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
-import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar } from 'lucide-react';
+import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar, CheckCircle2, RotateCcw, Eye } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
 import { generateClientSideAnalysis } from '../../lib/geminiAnalysis';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -38,6 +38,11 @@ export default function AdminDashboard({ user, userData }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [newUserRole, setNewUserRole] = useState('student');
   const [userViewFilter, setUserViewFilter] = useState('students'); // 'students' or 'admins'
+  const [surveyUserFilter, setSurveyUserFilter] = useState('');
+  const [surveyGrouping, setSurveyGrouping] = useState('community'); // 'community' or 'student'
+  const [selectedRecordSurveys, setSelectedRecordSurveys] = useState([]);
+  const [currentAiContext, setCurrentAiContext] = useState(null);
+  const [savedAnalyses, setSavedAnalyses] = useState({});
 
   // Community Creation
   const [showCommunityForm, setShowCommunityForm] = useState(false);
@@ -53,7 +58,7 @@ export default function AdminDashboard({ user, userData }) {
   const [aiError, setAiError] = useState('');
   const [aiData, setAiData] = useState(null);
   const [selectedAiSurveys, setSelectedAiSurveys] = useState([]);
-  const [selectedAiTopics, setSelectedAiTopics] = useState([]);
+  const [selectedAiTopics, setSelectedAiTopics] = useState(AI_TOPICS.map(t => t.id));
 
   useEffect(() => {
     fetchData();
@@ -93,6 +98,14 @@ export default function AdminDashboard({ user, userData }) {
       sSnap.forEach(d => sData.push({ id: d.id, ...d.data() }));
       setSurveyRecords(sData);
 
+      // Fetch Saved Analyses
+      const aSnap = await getDocs(collection(db, 'analyses'));
+      const aData = {};
+      aSnap.forEach(d => {
+        aData[d.id] = { id: d.id, ...d.data() };
+      });
+      setSavedAnalyses(aData);
+
     } catch (err) {
       console.error("Error fetching admin data:", err);
     } finally {
@@ -131,11 +144,12 @@ export default function AdminDashboard({ user, userData }) {
     }
   };
 
-  const triggerAiAnalysis = async (type, referenceId) => {
+  const triggerAiAnalysis = async (type, referenceId, specificSurveyIds = null) => {
     setActiveTab('ai-intelligence');
     setAiLoading(true);
     setAiError('');
     setAiData(null);
+    setCurrentAiContext({ type, referenceId });
 
     if (selectedAiTopics.length === 0) {
       setAiError("Please select at least one Analysis Topic from the list.");
@@ -145,22 +159,34 @@ export default function AdminDashboard({ user, userData }) {
 
     try {
       let submissions = [];
+      let targetSurveyIds = [];
       
-      if (type === 'individual') {
+      if (specificSurveyIds && specificSurveyIds.length > 0) {
+        targetSurveyIds = specificSurveyIds;
+        submissions = surveyRecords
+          .filter(s => specificSurveyIds.includes(s.id))
+          .map(s => {
+            const clean = { ...s };
+            delete clean.id;
+            return clean;
+          });
+      } else if (type === 'individual') {
         const q = query(collection(db, 'surveys'), where('userId', '==', referenceId));
         const snap = await getDocs(q);
-        snap.forEach(d => submissions.push(d.data()));
+        snap.forEach(d => {
+          targetSurveyIds.push(d.id);
+          submissions.push(d.data());
+        });
       } else {
         if (selectedAiSurveys.length === 0) {
           throw new Error("Please select at least one survey record for analysis.");
         }
+        targetSurveyIds = selectedAiSurveys;
         submissions = surveyRecords
           .filter(s => selectedAiSurveys.includes(s.id))
           .map(s => {
-            // Re-create the object to pass clean data to the cloud function
-            // just to be safe, omitting any UI specific states.
             const clean = { ...s };
-            delete clean.id; // not strictly necessary but keeps it clean
+            delete clean.id;
             return clean;
           });
       }
@@ -169,8 +195,8 @@ export default function AdminDashboard({ user, userData }) {
         throw new Error("No survey records found for this selection.");
       }
 
-      // Chunking logic (bypassing Vercel allows us to process all topics in one request to avoid Google API Rate Limits)
-      const chunkSize = 15;
+      // Chunking topics prevents token overflow and maintains fast, high-quality analysis
+      const chunkSize = 7;
       const chunks = [];
       for (let i = 0; i < selectedAiTopics.length; i += chunkSize) {
         chunks.push(selectedAiTopics.slice(i, i + chunkSize));
@@ -223,7 +249,69 @@ export default function AdminDashboard({ user, userData }) {
         }
         completedTopics += chunk.length;
       }
-      setAiProgressText('Analysis Complete!');
+
+      // Automatically save completed analysis to Firestore so it never needs to be re-run unnecessarily
+      setAiProgressText('Saving Analysis to Database...');
+      try {
+        const analysisDocRef = await addDoc(collection(db, 'analyses'), {
+          type,
+          referenceId,
+          surveyIds: targetSurveyIds,
+          surveyIdsKey: targetSurveyIds.slice().sort().join('_'),
+          data: mergedData,
+          createdAt: new Date().toISOString()
+        });
+
+        for (const sId of targetSurveyIds) {
+          try {
+            await updateDoc(doc(db, 'surveys', sId), {
+              isAnalyzed: true,
+              analysisId: analysisDocRef.id,
+              analyzedAt: new Date().toISOString()
+            });
+          } catch (e) {
+            console.error("Failed to update survey analyzed status:", e);
+          }
+        }
+
+        const newSavedItem = {
+          id: analysisDocRef.id,
+          type,
+          referenceId,
+          surveyIds: targetSurveyIds,
+          surveyIdsKey: targetSurveyIds.slice().sort().join('_'),
+          data: mergedData,
+          createdAt: new Date().toISOString()
+        };
+
+        setSavedAnalyses(prev => ({
+          ...prev,
+          [analysisDocRef.id]: newSavedItem
+        }));
+
+        setSurveyRecords(prev => prev.map(s => {
+          if (targetSurveyIds.includes(s.id)) {
+            return {
+              ...s,
+              isAnalyzed: true,
+              analysisId: analysisDocRef.id,
+              analyzedAt: new Date().toISOString()
+            };
+          }
+          return s;
+        }));
+
+        setCurrentAiContext(prev => ({
+          ...prev,
+          isSaved: true,
+          savedAt: new Date().toISOString(),
+          analysisId: analysisDocRef.id
+        }));
+      } catch (saveErr) {
+        console.error("Error saving analysis to Firestore:", saveErr);
+      }
+
+      setAiProgressText('Analysis Complete & Saved!');
       setTimeout(() => setAiProgressText(''), 2000);
     } catch (err) {
       setAiError(err.message || 'An unknown error occurred.');
@@ -334,7 +422,14 @@ export default function AdminDashboard({ user, userData }) {
                       className="w-4 h-4 text-brand-green bg-gray-800 border-white/10 rounded focus:ring-brand-green"
                     />
                   </td>
-                  <td className="py-2 pr-4">{s.userId} <span className="text-text-muted text-xs ml-2">({s.userEmail})</span></td>
+                  <td className="py-2 pr-4">
+                    {s.userId} <span className="text-text-muted text-xs ml-2">({s.userEmail})</span>
+                    {(s.isAnalyzed || (s.analysisId && savedAnalyses[s.analysisId]) || Object.values(savedAnalyses).some(a => Array.isArray(a.surveyIds) && a.surveyIds.includes(s.id))) && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> Analysed
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4 text-text-secondary">{new Date(s.date).toLocaleString()}</td>
                 </tr>
               ))}
@@ -343,6 +438,134 @@ export default function AdminDashboard({ user, userData }) {
         </div>
       </div>
     );
+  };
+
+  const viewSavedAnalysis = (analysis) => {
+    if (!analysis || !analysis.data) return;
+    setAiData(analysis.data);
+    setCurrentAiContext({
+      type: analysis.type,
+      referenceId: analysis.referenceId,
+      surveyIds: analysis.surveyIds || [],
+      isSaved: true,
+      savedAt: analysis.createdAt,
+      analysisId: analysis.id
+    });
+    setAiError('');
+    setAiLoading(false);
+    setActiveTab('ai-intelligence');
+  };
+
+  const findSavedAnalysisForSelection = (selectedIds) => {
+    if (!selectedIds || selectedIds.length === 0) return null;
+    const sortedKey = selectedIds.slice().sort().join('_');
+    const exact = Object.values(savedAnalyses).find(a => 
+      a.surveyIdsKey === sortedKey || (Array.isArray(a.surveyIds) && a.surveyIds.slice().sort().join('_') === sortedKey)
+    );
+    if (exact) return exact;
+
+    if (selectedIds.length === 1) {
+      const single = surveyRecords.find(s => s.id === selectedIds[0]);
+      if (single?.analysisId && savedAnalyses[single.analysisId]) {
+        return savedAnalyses[single.analysisId];
+      }
+      const found = Object.values(savedAnalyses).find(a => Array.isArray(a.surveyIds) && a.surveyIds.includes(selectedIds[0]));
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const handleViewSurveyAnalysis = (survey) => {
+    if (survey.analysisId && savedAnalyses[survey.analysisId]) {
+      viewSavedAnalysis(savedAnalyses[survey.analysisId]);
+      return;
+    }
+    const found = Object.values(savedAnalyses).find(a => 
+      Array.isArray(a.surveyIds) && a.surveyIds.includes(survey.id)
+    );
+    if (found) {
+      viewSavedAnalysis(found);
+      return;
+    }
+    alert("Analysis data not found for this survey.");
+  };
+
+  const handlePublishResult = async () => {
+    if (!currentAiContext || !aiData) return;
+    try {
+      const targetIds = currentAiContext.surveyIds || [];
+      const affectedSurveys = surveyRecords.filter(s => targetIds.includes(s.id));
+      
+      // Case 1: Exactly 1 survey record analyzed -> Publish to this specific survey record
+      if (targetIds.length === 1) {
+        const singleSurveyId = targetIds[0];
+        await updateDoc(doc(db, 'surveys', singleSurveyId), {
+          isPublished: true,
+          publishedAnalysis: aiData,
+          publishedAt: new Date().toISOString()
+        });
+
+        setSurveyRecords(prev => prev.map(s => s.id === singleSurveyId ? {
+          ...s,
+          isPublished: true,
+          publishedAnalysis: aiData,
+          publishedAt: new Date().toISOString()
+        } : s));
+
+        alert("Survey analysis successfully published! It will appear directly on this survey record in the student's Completed Surveys table.");
+        return;
+      }
+
+      // Case 2: Multiple surveys analyzed (Global/Combined analysis)
+      // Group surveys by student userId so each student gets their global analysis
+      const studentMap = {};
+      affectedSurveys.forEach(s => {
+        if (!studentMap[s.userId]) studentMap[s.userId] = [];
+        studentMap[s.userId].push(s);
+      });
+
+      // If referenceId was already a student ID (type === 'individual'), ensure that student is included
+      if (currentAiContext.type === 'individual' && currentAiContext.referenceId && !studentMap[currentAiContext.referenceId]) {
+        studentMap[currentAiContext.referenceId] = affectedSurveys;
+      }
+
+      for (const [studentId, sList] of Object.entries(studentMap)) {
+        if (!studentId || studentId === 'undefined') continue;
+        
+        if (sList.length === 1) {
+          // If only 1 survey for this particular student
+          await updateDoc(doc(db, 'surveys', sList[0].id), {
+            isPublished: true,
+            publishedAnalysis: aiData,
+            publishedAt: new Date().toISOString()
+          });
+        } else {
+          // Multiple surveys for this student -> Publish to top banner as Global Analysis
+          await setDoc(doc(db, 'published_analysis', studentId), {
+            data: aiData,
+            isGlobal: true,
+            surveyIds: sList.map(s => s.id),
+            publishedAt: new Date().toISOString()
+          });
+          for (const s of sList) {
+            await updateDoc(doc(db, 'surveys', s.id), {
+              isPublished: true,
+              publishedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      setSurveyRecords(prev => prev.map(s => targetIds.includes(s.id) ? {
+        ...s,
+        isPublished: true,
+        publishedAt: new Date().toISOString()
+      } : s));
+
+      alert("Global analysis successfully published! It will be featured at the top of the student portal as the Overall AI Impact Analysis.");
+    } catch (err) {
+      alert('Error publishing analysis: ' + err.message);
+    }
   };
 
   const renderAiContent = () => {
@@ -369,6 +592,28 @@ export default function AdminDashboard({ user, userData }) {
       const cp = aiData._communityProfile;
       return (
         <div className="space-y-6 mt-6">
+          {currentAiContext?.isSaved && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-emerald-400 mb-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Showing <strong>Saved Analysis</strong> {currentAiContext.savedAt ? `(Generated on ${new Date(currentAiContext.savedAt).toLocaleString()})` : ''}</span>
+              </div>
+              <span className="text-white/60 text-[11px] font-mono bg-white/5 px-2 py-0.5 rounded">Saved in Database</span>
+            </div>
+          )}
+          {currentAiContext && (
+            <div className="flex justify-end mb-4">
+              <button 
+                onClick={handlePublishResult} 
+                className="px-6 py-2.5 bg-brand-yellow text-black font-bold rounded-lg shadow-lg hover:bg-[#F9EBD0] transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-5 h-5" /> 
+                {(currentAiContext.surveyIds?.length || 0) === 1 
+                  ? 'Publish Survey Analysis to Student Record' 
+                  : 'Publish Global Analysis to Student Portal'}
+              </button>
+            </div>
+          )}
           {cp && (
             <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
               <div className="bg-brand-green/20 px-6 py-4 border-b border-white/10">
@@ -785,19 +1030,81 @@ export default function AdminDashboard({ user, userData }) {
         }
       });
     }
+    
+    if (surveyUserFilter) {
+      sortedRecords = sortedRecords.filter(s => s.userId === surveyUserFilter);
+    }
 
     sortedRecords.forEach(s => {
-      const commName = s.communityName || 'Unknown Community';
-      if (!groupedSurveys[commName]) groupedSurveys[commName] = [];
-      groupedSurveys[commName].push(s);
+      let groupName;
+      if (surveyGrouping === 'community') {
+        groupName = s.communityName || 'Unknown Community';
+      } else {
+        groupName = s.userId ? `${s.userId} (${s.userEmail})` : 'Unknown Student';
+      }
+      if (!groupedSurveys[groupName]) groupedSurveys[groupName] = [];
+      groupedSurveys[groupName].push(s);
     });
+
+    const toggleRecordSelection = (id) => {
+      setSelectedRecordSurveys(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+    
+    const toggleAllRecords = (records) => {
+      const allIds = records.map(s => s.id);
+      const allSelected = allIds.every(id => selectedRecordSurveys.includes(id));
+      if (allSelected) {
+        setSelectedRecordSurveys(prev => prev.filter(id => !allIds.includes(id)));
+      } else {
+        setSelectedRecordSurveys(prev => [...new Set([...prev, ...allIds])]);
+      }
+    };
+
+    const handleGroupAnalyze = (records, groupName, forceReanalyze = false) => {
+      const selectedIds = records.map(s => s.id).filter(id => selectedRecordSurveys.includes(id));
+      if (selectedIds.length === 0) {
+        alert("Please select at least one survey using the checkboxes to analyze.");
+        return;
+      }
+      if (!forceReanalyze) {
+        const existing = findSavedAnalysisForSelection(selectedIds);
+        if (existing) {
+          viewSavedAnalysis(existing);
+          return;
+        }
+      }
+      if (surveyGrouping === 'community') {
+        const commId = records.find(s => selectedIds.includes(s.id))?.communityId || groupName;
+        triggerAiAnalysis('community', commId, selectedIds);
+      } else {
+        const studentId = records.find(s => selectedIds.includes(s.id))?.userId || groupName;
+        triggerAiAnalysis('individual', studentId, selectedIds);
+      }
+    };
 
     return (
       <div>
         <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-xl font-serif text-white">Survey Submissions by Community</h2>
-          <div className="flex items-center space-x-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
-            <Calendar className="w-4 h-4 text-text-muted" />
+          <h2 className="text-xl font-serif text-white">Survey Submissions by {surveyGrouping === 'community' ? 'Community' : 'Student'}</h2>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex bg-black/50 border border-white/10 rounded-lg p-1">
+              <button 
+                onClick={() => setSurveyGrouping('community')}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${surveyGrouping === 'community' ? 'bg-white/10 text-white shadow-sm' : 'text-text-secondary hover:text-white'}`}
+              >
+                By Community
+              </button>
+              <button 
+                onClick={() => setSurveyGrouping('student')}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${surveyGrouping === 'student' ? 'bg-white/10 text-white shadow-sm' : 'text-text-secondary hover:text-white'}`}
+              >
+                By Student
+              </button>
+            </div>
+            
+            <div className="flex items-center space-x-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
+              <Calendar className="w-4 h-4 text-text-muted" />
             <label htmlFor="surveyDateFilter" className="text-sm text-text-muted font-medium whitespace-nowrap hidden sm:block">Filter by Date:</label>
             <input
               type="date"
@@ -817,48 +1124,150 @@ export default function AdminDashboard({ user, userData }) {
               </button>
             )}
           </div>
+          {surveyUserFilter && (
+            <div className="flex items-center space-x-3 bg-brand-green/10 border border-brand-green/30 px-4 py-2 rounded-xl">
+              <Users className="w-4 h-4 text-brand-green" />
+              <span className="text-sm text-brand-green font-medium">User: {surveyUserFilter}</span>
+              <button 
+                onClick={() => setSurveyUserFilter('')}
+                className="text-brand-green hover:text-white transition-colors ml-2 font-bold"
+                title="Clear User Filter"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+          </div>
         </div>
         
         {Object.keys(groupedSurveys).length === 0 ? (
           <p className="text-text-secondary text-sm">
-            {surveyDateFilter ? "No survey submissions found for this date." : "No survey submissions yet."}
+            {surveyDateFilter || surveyUserFilter ? "No survey submissions found for these filters." : "No survey submissions yet."}
           </p>
         ) : (
-          Object.entries(groupedSurveys).map(([commName, records]) => (
-            <div key={commName} className="mb-8 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="bg-brand-green/20 px-6 py-4 border-b border-white/10 flex justify-between items-center">
-                <h3 className="text-brand-green font-bold text-lg">{commName}</h3>
-                <span className="text-brand-green text-sm">{records.length} records</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-white">
-                  <thead className="text-text-muted border-b border-white/10 uppercase font-mono">
-                    <tr>
-                      <th className="pb-3 pt-3 pl-6 pr-4">Date</th>
-                      <th className="pb-3 pt-3 pr-4">Student</th>
-                      <th className="pb-3 pt-3 pr-6 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {records.map(s => (
-                      <tr key={s.id} className="hover:bg-white/5 transition-colors">
-                        <td className="py-3 pl-6 pr-4">{new Date(s.date).toLocaleDateString()}</td>
-                        <td className="py-3 pr-4">{s.userId} <br/><span className="text-xs text-text-muted">{s.userEmail}</span></td>
-                        <td className="py-3 pr-6 flex justify-end gap-2">
-                          <button onClick={() => setSelectedSurveyView(s)} className="text-blue-400 hover:underline flex items-center text-xs border border-blue-400/30 px-2 py-1 rounded bg-blue-400/10">
-                            <FileText className="w-3 h-3 mr-1" /> View
-                          </button>
-                          <button onClick={() => triggerAiAnalysis('individual', s.userId)} className="text-brand-green hover:underline flex items-center text-xs border border-brand-green/30 px-2 py-1 rounded bg-brand-green/10">
-                            <Sparkles className="w-3 h-3 mr-1" /> AI Analyze
-                          </button>
-                        </td>
+          Object.entries(groupedSurveys).map(([commName, records]) => {
+            const allIds = records.map(s => s.id);
+            const allSelected = allIds.every(id => selectedRecordSurveys.includes(id));
+            const hasSelected = allIds.some(id => selectedRecordSurveys.includes(id));
+            const selectedIds = records.map(s => s.id).filter(id => selectedRecordSurveys.includes(id));
+            const savedSelectionAnalysis = hasSelected ? findSavedAnalysisForSelection(selectedIds) : null;
+
+            return (
+              <div key={commName} className="mb-8 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="bg-brand-green/20 px-6 py-4 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                  <h3 className="text-brand-green font-bold text-lg">{commName}</h3>
+                  <div className="flex items-center gap-4">
+                    <span className="text-brand-green text-sm">{records.length} records</span>
+                    {savedSelectionAnalysis ? (
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => viewSavedAnalysis(savedSelectionAnalysis)} 
+                          className="flex items-center text-xs border border-emerald-500/50 bg-emerald-500 text-black font-bold px-3 py-1.5 rounded hover:bg-emerald-400 transition-colors shadow-sm cursor-pointer"
+                          title="View saved AI analysis for selected surveys"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Analysed (Click to View)
+                        </button>
+                        <button 
+                          onClick={() => handleGroupAnalyze(records, commName, true)} 
+                          className="flex items-center text-xs border border-white/20 bg-white/5 text-text-muted hover:text-white px-2 py-1.5 rounded transition-colors cursor-pointer"
+                          title="Re-analyze selected surveys with AI"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" /> Re-analyze
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleGroupAnalyze(records, commName)} 
+                        disabled={!hasSelected}
+                        className={`flex items-center text-xs border px-3 py-1.5 rounded transition-colors ${hasSelected ? 'border-brand-green/50 bg-brand-green text-black font-bold hover:bg-brand-green/90 cursor-pointer' : 'border-white/10 bg-white/5 text-text-muted cursor-not-allowed'}`}
+                      >
+                        <Sparkles className="w-3 h-3 mr-2" /> Analyze Selected
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-white">
+                    <thead className="text-text-muted border-b border-white/10 uppercase font-mono">
+                      <tr>
+                        <th className="pb-3 pt-3 pl-6 pr-2 w-10">
+                          <input 
+                            type="checkbox" 
+                            checked={allSelected}
+                            onChange={() => toggleAllRecords(records)}
+                            className="rounded border-white/20 bg-black/50 text-brand-green focus:ring-0 focus:ring-offset-0"
+                          />
+                        </th>
+                        <th className="pb-3 pt-3 pl-2 pr-4">Date</th>
+                        <th className="pb-3 pt-3 pr-4">Student</th>
+                        <th className="pb-3 pt-3 pr-6 text-right">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {records.map(s => {
+                        const isAnalyzed = s.isAnalyzed || (s.analysisId && savedAnalyses[s.analysisId]) || Object.values(savedAnalyses).some(a => Array.isArray(a.surveyIds) && a.surveyIds.includes(s.id));
+                        return (
+                          <tr key={s.id} className="hover:bg-white/5 transition-colors">
+                            <td className="py-3 pl-6 pr-2">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedRecordSurveys.includes(s.id)}
+                                onChange={() => toggleRecordSelection(s.id)}
+                                className="rounded border-white/20 bg-black/50 text-brand-green focus:ring-0 focus:ring-offset-0"
+                              />
+                            </td>
+                            <td className="py-3 pl-2 pr-4">{new Date(s.date).toLocaleDateString()}</td>
+                            <td className="py-3 pr-4">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-white">{s.userId}</span>
+                                {(s.isPublished || s.publishedAnalysis) && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-green/20 text-brand-green border border-brand-green/30">
+                                    Published
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-text-muted">{s.userEmail}</span>
+                            </td>
+                            <td className="py-3 pr-6 flex justify-end gap-2 items-center">
+                              <button onClick={() => setSelectedSurveyView(s)} className="text-blue-400 hover:underline flex items-center text-xs border border-blue-400/30 px-2 py-1 rounded bg-blue-400/10 cursor-pointer">
+                                <FileText className="w-3 h-3 mr-1" /> View
+                              </button>
+                              {isAnalyzed ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button 
+                                    onClick={() => handleViewSurveyAnalysis(s)}
+                                    className="text-emerald-400 hover:bg-emerald-500/20 inline-flex items-center text-xs font-semibold border border-emerald-500/40 px-2.5 py-1 rounded bg-emerald-500/15 transition-all shadow-sm cursor-pointer"
+                                    title="View saved AI analysis"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Analysed (Click to View)
+                                  </button>
+                                  <button
+                                    onClick={() => triggerAiAnalysis('individual', s.userId, [s.id])}
+                                    className="text-text-muted hover:text-white inline-flex items-center text-xs border border-white/10 px-1.5 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                                    title="Re-analyze this survey record"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => triggerAiAnalysis('individual', s.userId, [s.id])}
+                                  className="text-brand-green hover:underline flex items-center text-xs border border-brand-green/30 px-2 py-1 rounded bg-brand-green/10 hover:bg-brand-green/20 cursor-pointer"
+                                  title="Analyze this survey record with AI"
+                                >
+                                  <Sparkles className="w-3 h-3 mr-1" /> Analyze
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
 
         {selectedSurveyView && (
@@ -1004,7 +1413,18 @@ export default function AdminDashboard({ user, userData }) {
                             <td className="py-3 pr-4">{p.email}</td>
                             <td className="py-3 pr-4"><span className="px-2 py-1 rounded text-xs bg-white/10 text-white">student</span></td>
                             <td className="py-3 pr-4">{p.name || '-'}</td>
-                            <td className="py-3 text-right"><button onClick={() => { setSelectedProfile(p); setIsProfileModalOpen(true); }} className="text-brand-yellow hover:underline">Edit</button></td>
+                            <td className="py-3 text-right flex justify-end gap-2">
+                              <button 
+                                onClick={() => { 
+                                  setSurveyUserFilter(p.id); 
+                                  setActiveTab('surveys'); 
+                                }} 
+                                className="text-brand-green hover:underline border border-brand-green/30 px-2 py-1 rounded bg-brand-green/10 text-xs flex items-center"
+                              >
+                                <FileText className="w-3 h-3 mr-1" /> View Surveys
+                              </button>
+                              <button onClick={() => { setSelectedProfile(p); setIsProfileModalOpen(true); }} className="text-brand-yellow hover:underline border border-brand-yellow/30 px-2 py-1 rounded bg-brand-yellow/10 text-xs">Edit</button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1084,13 +1504,34 @@ export default function AdminDashboard({ user, userData }) {
                     </select>
                   </div>
                   {aiCommunityId && (
-                    <button 
-                      onClick={() => triggerAiAnalysis('community', aiCommunityId)} 
-                      disabled={selectedAiSurveys.length === 0}
-                      className="px-6 py-3 bg-brand-green text-black font-bold rounded-xl shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Sparkles className="w-5 h-5" /> Generate AI Analysis
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {findSavedAnalysisForSelection(selectedAiSurveys) ? (
+                        <>
+                          <button 
+                            onClick={() => viewSavedAnalysis(findSavedAnalysisForSelection(selectedAiSurveys))}
+                            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <CheckCircle2 className="w-5 h-5" /> Analysed (Click to View)
+                          </button>
+                          <button 
+                            onClick={() => triggerAiAnalysis('community', aiCommunityId)} 
+                            disabled={selectedAiSurveys.length === 0}
+                            className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
+                            title="Re-run AI analysis with Gemini"
+                          >
+                            <RotateCcw className="w-4 h-4" /> Re-analyze
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={() => triggerAiAnalysis('community', aiCommunityId)} 
+                          disabled={selectedAiSurveys.length === 0}
+                          className="px-6 py-3 bg-brand-green text-black font-bold rounded-xl shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          <Sparkles className="w-5 h-5" /> Generate AI Analysis
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 

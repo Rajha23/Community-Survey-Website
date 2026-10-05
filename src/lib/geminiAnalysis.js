@@ -34,6 +34,91 @@ export function extractAndAggregate(submissions) {
   return aggregatedStats;
 }
 
+function fixInternalQuotes(jsonStr) {
+  let result = '';
+  let inString = false;
+  let isEscaped = false;
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (char === '\\' && inString) {
+      isEscaped = !isEscaped;
+      result += char;
+      continue;
+    }
+
+    if (char === '"' && !isEscaped) {
+      if (!inString) {
+        inString = true;
+        result += char;
+      } else {
+        let j = i + 1;
+        while (j < jsonStr.length && /\s/.test(jsonStr[j])) {
+          j++;
+        }
+        const nextChar = jsonStr[j];
+        if (nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || j === jsonStr.length) {
+          inString = false;
+          result += char;
+        } else {
+          result += "'";
+        }
+      }
+    } else {
+      result += char;
+    }
+
+    isEscaped = false;
+  }
+
+  return result;
+}
+
+export function cleanAndParseJson(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+
+  // 1. Strip markdown fences if any
+  let clean = raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+  // 2. Find outermost JSON object/array
+  const firstBrace = clean.search(/[{\[]/);
+  const lastBrace = Math.max(clean.lastIndexOf('}'), clean.lastIndexOf(']'));
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    clean = clean.substring(firstBrace, lastBrace + 1);
+  }
+
+  // Attempt 1: Direct standard parse
+  try {
+    return JSON.parse(clean);
+  } catch (_) {}
+
+  // Attempt 2: Quote unquoted object keys (e.g. value: 2 -> "value": 2)
+  let pass1 = clean.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+
+  // Attempt 3: Remove trailing commas before } or ]
+  pass1 = pass1.replace(/,\s*([}\]])/g, '$1');
+
+  try {
+    return JSON.parse(pass1);
+  } catch (_) {}
+
+  // Attempt 4: Fix unescaped internal quotes inside strings
+  let pass2 = fixInternalQuotes(pass1);
+  try {
+    return JSON.parse(pass2);
+  } catch (_) {}
+
+  // Attempt 5: Clean control characters
+  let pass3 = pass2.replace(/[\r\n\t]/g, ' ');
+  try {
+    return JSON.parse(pass3);
+  } catch (_) {}
+
+  // Final fallback attempt
+  return JSON.parse(pass2);
+}
+
 export const generateClientSideAnalysis = async ({ analysisType, referenceId, communityData, submissions, selectedTopics }) => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
@@ -41,7 +126,6 @@ export const generateClientSideAnalysis = async ({ analysisType, referenceId, co
   }
 
   const TOPIC_SCHEMAS = {
-    communityProfile: `      communityProfile: { \n        description: string; // A detailed 3-paragraph summary of the community based on data\n        majorIssues: string[]; // List of specific issues identified (MUST NOT BE EMPTY)\n      };`,
     _communityProfile: `      _communityProfile: { \n        name: string;\n        district: string;\n        population: string;\n        majorIssues: string; // VERY brief summary of major issues\n      }; // Base data (always requested)`,
     communityProfile: `      communityProfile: { \n        description: string; // Max 2 sentences, ultra-brief summary\n        majorIssues: string[]; // 1-3 word bullet points ONLY\n      }; // (MUST NOT BE EMPTY)`,
     stakeholderMap: `      stakeholderMap: { \n        highHigh: string[]; // Max 3 words per item\n        highLow: string[]; // Max 3 words per item\n        lowHigh: string[]; // Max 3 words per item\n        lowLow: string[]; // Max 3 words per item\n      }; // (MUST NOT BE EMPTY)`,
@@ -71,17 +155,21 @@ export const generateClientSideAnalysis = async ({ analysisType, referenceId, co
   }
 
   const prompt = `
-  Generate a complete Design Thinking analysis formatted STRICTLY as JSON. 
+  Generate a complete Design Thinking analysis formatted STRICTLY as valid JSON. 
   IMPORTANT: You MUST generate actual, deep insights derived exclusively from the Aggregated Survey Data. DO NOT under any circumstances output placeholder text or generic templates. 
   CRITICAL: Even if the provided data is sparse, you MUST extrapolate and infer reasonable Design Thinking insights to COMPLETELY populate the entire JSON structure. Do NOT leave any array empty. Every single array MUST have at least 1-3 highly detailed items. Be creative and analytical.
   
   The JSON output MUST perfectly conform to the following TypeScript interface. All fields are REQUIRED.
+  
+  CRITICAL SYNTAX & FORMATTING RULES:
+  1. ALL property keys MUST be in double quotes (e.g. "name": "...", "value": 10). NEVER output unquoted keys.
+  2. NEVER use unescaped double quotes inside string values. If quoting terms or phrases, use single quotes (e.g. 'water') or escape with \\".
+  3. NEVER include trailing commas before } or ].
+  4. Output ONLY the raw JSON object parseable by standard JSON.parse(). Do not include markdown codeblocks or comments.
 
   interface AnalysisOutput {
 ${interfaceBody}
   }
-  
-  Output ONLY raw JSON, with no markdown codeblocks (\`\`\`).
   
   Context: ${JSON.stringify(communityData || {})}
   Community Profile Snapshot: ${JSON.stringify(latestCommunityProfile || {})}
@@ -92,11 +180,11 @@ ${interfaceBody}
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.7,
+      temperature: 0.2,
       responseMimeType: "application/json"
     },
     systemInstruction: {
-      parts: [{ text: "You are an expert Community Development and Design Thinking AI. Your ONLY job is to take the provided Aggregated Survey Data and synthesize a hyper-specific, data-driven, actionable analysis in JSON format. Do not use generic template text. Everything must be derived from the user's data." }]
+      parts: [{ text: "You are an expert Community Development and Design Thinking AI. Your ONLY job is to take the provided Aggregated Survey Data and synthesize a hyper-specific, data-driven, actionable analysis in strictly valid JSON format. Never include unescaped quotes inside strings. Do not use generic template text. Everything must be derived from the user's data." }]
     }
   };
 
@@ -125,8 +213,7 @@ ${interfaceBody}
 
   let aiResult;
   try {
-    const cleanJsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    aiResult = JSON.parse(cleanJsonStr);
+    aiResult = cleanAndParseJson(responseText);
     
     if (aiResult.AnalysisOutput) {
       aiResult = aiResult.AnalysisOutput;
@@ -152,7 +239,8 @@ ${interfaceBody}
     if (requestedTopics.includes('graphicalData')) aiResult.graphicalData = aiResult.graphicalData || [];
     
   } catch (parseError) {
-    throw new Error('AI response could not be parsed. The AI output was malformed.');
+    console.error("JSON Parse Error on string:", responseText);
+    throw new Error('AI response could not be parsed: ' + parseError.message);
   }
 
   if (latestCommunityProfile) {

@@ -36,6 +36,82 @@ function extractAndAggregate(submissions) {
   return aggregatedStats;
 }
 
+function fixInternalQuotes(jsonStr) {
+  let result = '';
+  let inString = false;
+  let isEscaped = false;
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (char === '\\' && inString) {
+      isEscaped = !isEscaped;
+      result += char;
+      continue;
+    }
+
+    if (char === '"' && !isEscaped) {
+      if (!inString) {
+        inString = true;
+        result += char;
+      } else {
+        let j = i + 1;
+        while (j < jsonStr.length && /\s/.test(jsonStr[j])) {
+          j++;
+        }
+        const nextChar = jsonStr[j];
+        if (nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || j === jsonStr.length) {
+          inString = false;
+          result += char;
+        } else {
+          result += "'";
+        }
+      }
+    } else {
+      result += char;
+    }
+
+    isEscaped = false;
+  }
+
+  return result;
+}
+
+function cleanAndParseJson(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+
+  let clean = raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+  const firstBrace = clean.search(/[{\[]/);
+  const lastBrace = Math.max(clean.lastIndexOf('}'), clean.lastIndexOf(']'));
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    clean = clean.substring(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(clean);
+  } catch (_) {}
+
+  let pass1 = clean.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+  pass1 = pass1.replace(/,\s*([}\]])/g, '$1');
+
+  try {
+    return JSON.parse(pass1);
+  } catch (_) {}
+
+  let pass2 = fixInternalQuotes(pass1);
+  try {
+    return JSON.parse(pass2);
+  } catch (_) {}
+
+  let pass3 = pass2.replace(/[\r\n\t]/g, ' ');
+  try {
+    return JSON.parse(pass3);
+  } catch (_) {}
+
+  return JSON.parse(pass2);
+}
+
 export default async function handler(req, res) {
   // Set CORS headers for Vercel
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -150,8 +226,7 @@ ${interfaceBody}
 
     let aiResult;
     try {
-      const cleanJsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      aiResult = JSON.parse(cleanJsonStr);
+      aiResult = cleanAndParseJson(responseText);
       
       // Unwrap if Gemini incorrectly nested it under the interface name
       if (aiResult.AnalysisOutput) {
