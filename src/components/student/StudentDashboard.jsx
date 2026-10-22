@@ -116,7 +116,8 @@ export default function StudentDashboard({ user, userData }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), { ...personalDetails }, { merge: true });
+      const targetUserDoc = userData.docId || userData.primaryKey || user.uid;
+      await setDoc(doc(db, 'users', targetUserDoc), { ...personalDetails }, { merge: true });
       await setDoc(doc(db, 'personal_details', user.uid), { ...personalDetails, email: userData.email, id: userData.id }, { merge: true });
       setStep('community-select');
     } catch (err) {
@@ -255,13 +256,20 @@ export default function StudentDashboard({ user, userData }) {
           <div className="bg-brand-card/80 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10 shadow-xl flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-serif text-white mb-2">Student Portal</h1>
-              <p className="text-text-secondary">Welcome, <span className="text-white font-medium">{userData.name || userData.email}</span></p>
+              <p className="text-text-secondary">
+                Welcome <span className="text-white font-medium">{userData.name || userData.email} ({userData.primaryKey || userData.uniqueId || 'U001'})</span>
+              </p>
             </div>
             <div className="hidden sm:block text-right">
-              <div className="text-sm text-text-muted mb-1">Register No / ID</div>
-              <div className="font-mono text-brand-yellow bg-brand-yellow/10 px-3 py-1 rounded-lg border border-brand-yellow/20 inline-block">
-                {userData.id}
+              <div className="text-sm text-text-muted mb-1">Unique ID</div>
+              <div className="font-mono text-brand-green bg-brand-green/10 px-3 py-1 rounded-lg border border-brand-green/20 inline-block font-bold">
+                {userData.primaryKey || userData.uniqueId || 'U001'}
               </div>
+              {userData.id && (
+                <div className="text-xs text-text-muted mt-1">
+                  Reg No: <span className="text-brand-yellow font-mono">{userData.id}</span>
+                </div>
+              )}
             </div>
           </div>
 

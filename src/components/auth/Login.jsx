@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
+import { fetchUserProfile } from '../../lib/userService';
 import { LogIn, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function Login({ role, onViewChange }) {
@@ -19,11 +20,9 @@ export default function Login({ role, onViewChange }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      const docRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(docRef);
+      const userData = await fetchUserProfile(user);
       
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
+      if (userData) {
         if (userData.role !== role) {
           setError(`Invalid credentials. This portal is for ${role}s only.`);
           await auth.signOut();

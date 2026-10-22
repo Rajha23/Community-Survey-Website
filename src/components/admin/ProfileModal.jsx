@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, secondaryAuth } from '../../lib/firebase';
+import { getNextUserPrimaryKey } from '../../lib/userService';
 import { X, Save, Loader2, UserPlus } from 'lucide-react';
 
 export default function ProfileModal({ profile, newUserRole, onClose, onSave }) {
@@ -77,6 +78,8 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
     
     try {
       let uid = profile?.uid;
+      let targetDocId = profile?.docId || profile?.primaryKey || profile?.uid;
+      let primaryKey = profile?.primaryKey || profile?.uniqueId;
 
       // If creating a new user, we must register them with Firebase Auth first
       if (isNew) {
@@ -87,6 +90,8 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
         }
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, formData.email, formData.password);
         uid = userCredential.user.uid;
+        primaryKey = await getNextUserPrimaryKey();
+        targetDocId = primaryKey;
       }
 
       // Now create/update Firestore documents
@@ -99,11 +104,13 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
         section: formData.section
       }, { merge: true });
 
-      await setDoc(doc(db, 'users', uid), {
+      await setDoc(doc(db, 'users', targetDocId), {
         name: formData.name,
         id: formData.id,
         email: formData.email,
-        role: formData.role
+        role: formData.role,
+        uid: uid,
+        ...(primaryKey ? { primaryKey, uniqueId: primaryKey } : {})
       }, { merge: true });
 
       onSave();

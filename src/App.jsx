@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, secondaryAuth } from './lib/firebase';
+import { fetchUserProfile } from './lib/userService';
 import BackgroundCanvas from './components/BackgroundCanvas';
 import LandingPage from './components/landing/LandingPage';
 import Login from './components/auth/Login';
@@ -24,7 +25,7 @@ const ensureDefaultAdmin = async () => {
 
     const adminDoc = await getDoc(doc(db, 'users', adminUid));
     if (!adminDoc.exists()) {
-      await setDoc(doc(db, 'users', adminUid), { id: '1001', email: 'admin@trp.srmtrichy.edu.in', role: 'admin' });
+      await setDoc(doc(db, 'users', adminUid), { id: '1001', primaryKey: 'ADM01', uniqueId: 'ADM01', email: 'admin@trp.srmtrichy.edu.in', role: 'admin' });
     }
   } catch (error) {
     console.error("Error setting up default admin:", error);
@@ -43,11 +44,9 @@ export default function App() {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const docRef = doc(db, 'users', currentUser.uid);
-          const docSnap = await getDoc(docRef);
+          const data = await fetchUserProfile(currentUser);
           
-          if (docSnap.exists()) {
-            const data = docSnap.data();
+          if (data) {
             setUserData(data);
             if (data.role === 'admin') {
               setCurrentView('admin-dashboard');

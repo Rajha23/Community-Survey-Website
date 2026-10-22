@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
+import { getNextUserPrimaryKey } from '../../lib/userService';
 import { UserPlus, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function Register({ onViewChange }) {
@@ -36,7 +37,12 @@ export default function Register({ onViewChange }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      await setDoc(doc(db, 'users', user.uid), {
+      const newPrimaryKey = await getNextUserPrimaryKey();
+      
+      await setDoc(doc(db, 'users', newPrimaryKey), {
+        primaryKey: newPrimaryKey,
+        uniqueId: newPrimaryKey,
+        uid: user.uid,
         id: regId,
         email: user.email,
         role: 'student',

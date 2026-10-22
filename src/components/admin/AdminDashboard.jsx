@@ -83,7 +83,21 @@ export default function AdminDashboard({ user, userData }) {
       // Fetch Profiles
       const pSnap = await getDocs(collection(db, 'users'));
       const pData = [];
-      pSnap.forEach(d => pData.push({ uid: d.id, ...d.data() }));
+      pSnap.forEach(d => {
+        const data = d.data();
+        pData.push({
+          docId: d.id,
+          uid: data.uid || d.id,
+          primaryKey: data.primaryKey || data.uniqueId || (d.id.startsWith('U') ? d.id : null),
+          ...data
+        });
+      });
+      pData.sort((a, b) => {
+        if (a.primaryKey && b.primaryKey) return a.primaryKey.localeCompare(b.primaryKey);
+        if (a.primaryKey) return -1;
+        if (b.primaryKey) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
       setProfiles(pData);
 
       // Fetch Communities
@@ -1404,15 +1418,23 @@ export default function AdminDashboard({ user, userData }) {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-white">
                       <thead className="text-text-muted border-b border-white/10 uppercase font-mono">
-                        <tr><th className="pb-3 pr-4">Reg No</th><th className="pb-3 pr-4">Email</th><th className="pb-3 pr-4">Role</th><th className="pb-3 pr-4">Name</th><th className="pb-3 text-right">Action</th></tr>
+                        <tr>
+                          <th className="pb-3 pr-4">Unique ID</th>
+                          <th className="pb-3 pr-4">Reg No</th>
+                          <th className="pb-3 pr-4">Name</th>
+                          <th className="pb-3 pr-4">Email</th>
+                          <th className="pb-3 pr-4">Role</th>
+                          <th className="pb-3 text-right">Action</th>
+                        </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {profiles.filter(p => p.role !== 'admin').map(p => (
-                          <tr key={p.uid} className="hover:bg-white/5 transition-colors">
-                            <td className="py-3 pr-4">{p.id || p.uid.substring(0,6)}</td>
-                            <td className="py-3 pr-4">{p.email}</td>
+                          <tr key={p.docId || p.uid} className="hover:bg-white/5 transition-colors">
+                            <td className="py-3 pr-4 font-mono font-bold text-brand-green">{p.primaryKey || p.uniqueId || p.docId || '-'}</td>
+                            <td className="py-3 pr-4 font-mono text-brand-yellow">{p.id || '-'}</td>
+                            <td className="py-3 pr-4 font-medium">{p.name || '-'}</td>
+                            <td className="py-3 pr-4 text-text-secondary">{p.email}</td>
                             <td className="py-3 pr-4"><span className="px-2 py-1 rounded text-xs bg-white/10 text-white">student</span></td>
-                            <td className="py-3 pr-4">{p.name || '-'}</td>
                             <td className="py-3 text-right flex justify-end gap-2">
                               <button 
                                 onClick={() => { 
