@@ -44,7 +44,16 @@ export default function App() {
       if (currentUser) {
         setUser(currentUser);
         try {
-          const data = await fetchUserProfile(currentUser);
+          let data = await fetchUserProfile(currentUser);
+          
+          // If profile document is not found immediately (registration write in progress), retry up to 5 times
+          if (!data) {
+            for (let i = 0; i < 5; i++) {
+              await new Promise(r => setTimeout(r, 600));
+              data = await fetchUserProfile(currentUser);
+              if (data) break;
+            }
+          }
           
           if (data) {
             setUserData(data);
@@ -54,7 +63,7 @@ export default function App() {
               setCurrentView('student-dashboard');
             }
           } else {
-            console.error("No user document found!");
+            console.error("No user document found after retries!");
             signOut(auth);
             setCurrentView('welcome');
           }

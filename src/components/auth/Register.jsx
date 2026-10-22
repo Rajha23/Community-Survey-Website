@@ -17,16 +17,29 @@ export default function Register({ onViewChange }) {
     e.preventDefault();
     setError('');
 
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanRegId = (regId || '').trim();
+
+    if (!cleanEmail || !cleanRegId) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password should be at least 6 characters.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Check if Register ID is already in use
-      const qId = query(collection(db, 'users'), where('id', '==', regId));
+      // 1. Check if Register ID is already in use
+      const qId = query(collection(db, 'users'), where('id', '==', cleanRegId));
       const querySnapshot = await getDocs(qId);
       if (!querySnapshot.empty) {
         setError('This Register Number is already in use.');
@@ -34,31 +47,36 @@ export default function Register({ onViewChange }) {
         return;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // 2. Pre-fetch the next primary key (U086...) BEFORE creating user so setDoc is instant
+      const newPrimaryKey = await getNextUserPrimaryKey();
+
+      // 3. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = userCredential.user;
       
-      const newPrimaryKey = await getNextUserPrimaryKey();
-      
+      // 4. Save user profile with sequential primary key
       await setDoc(doc(db, 'users', newPrimaryKey), {
         primaryKey: newPrimaryKey,
         uniqueId: newPrimaryKey,
         uid: user.uid,
-        id: regId,
-        email: user.email,
+        id: cleanRegId,
+        email: cleanEmail,
         role: 'student',
         createdAt: new Date().toISOString()
       });
       
       // onAuthStateChanged in App.js will handle the view change automatically
     } catch (err) {
-      let errorMessage = 'Failed to register.';
-      switch (err.code) {
-        case 'auth/email-already-in-use':
-          errorMessage = 'This email is already registered.';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'Password should be at least 6 characters.';
-          break;
+      console.error("Registration error:", err);
+      let errorMessage = err.message || 'Failed to register.';
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please go to Login instead.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network connection failed. Please check your internet connection.';
       }
       setError(errorMessage);
       setLoading(false);
