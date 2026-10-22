@@ -16,11 +16,6 @@ export default function Register({ onViewChange }) {
     e.preventDefault();
     setError('');
 
-    if (!email.endsWith('@trp.srmtrichy.edu.in')) {
-      setError('Registration is restricted to @trp.srmtrichy.edu.in email addresses only.');
-      return;
-    }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -93,16 +88,15 @@ export default function Register({ onViewChange }) {
 
       <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
         <div>
-          <label className="block text-sm font-medium text-text-secondary mb-2">College Email Address <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-text-secondary mb-2">Email Address <span className="text-red-500">*</span></label>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-3 bg-brand-bg border border-white/10 rounded-xl text-white placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all"
-            placeholder="student@trp.srmtrichy.edu.in"
+            placeholder="Enter your email address"
           />
-          <p className="text-xs text-text-muted mt-2">Must be a valid @trp.srmtrichy.edu.in email</p>
         </div>
 
         <div>
