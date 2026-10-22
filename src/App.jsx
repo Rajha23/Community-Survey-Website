@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, secondaryAuth } from './lib/firebase';
 import { fetchUserProfile } from './lib/userService';
 import BackgroundCanvas from './components/BackgroundCanvas';
@@ -23,9 +23,22 @@ const ensureDefaultAdmin = async () => {
       await signOut(secondaryAuth);
     }
 
-    const adminDoc = await getDoc(doc(db, 'users', adminUid));
+    const adminDoc = await getDoc(doc(db, 'users', 'admin'));
     if (!adminDoc.exists()) {
-      await setDoc(doc(db, 'users', adminUid), { id: '1001', primaryKey: 'ADM01', uniqueId: 'ADM01', email: 'admin@trp.srmtrichy.edu.in', role: 'admin' });
+      await setDoc(doc(db, 'users', 'admin'), {
+        id: '1001',
+        primaryKey: 'ADM01',
+        uniqueId: 'ADM01',
+        uid: adminUid,
+        email: 'admin@trp.srmtrichy.edu.in',
+        role: 'admin'
+      });
+    }
+
+    // Clean up old hash doc if present
+    const oldHashDoc = await getDoc(doc(db, 'users', adminUid));
+    if (oldHashDoc.exists()) {
+      await deleteDoc(doc(db, 'users', adminUid));
     }
   } catch (error) {
     console.error("Error setting up default admin:", error);
