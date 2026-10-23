@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, secondaryAuth } from '../../lib/firebase';
@@ -122,9 +123,15 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="bg-brand-card rounded-[2rem] border border-white/5 shadow-2xl w-full max-w-2xl overflow-hidden">
+  return typeof document !== 'undefined' ? createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-brand-card rounded-[2rem] border border-white/5 shadow-2xl w-full max-w-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center p-6 border-b border-white/5 bg-brand-bg">
           <h2 className="text-xl font-serif font-bold text-white flex items-center">
             {isNew ? (
@@ -311,6 +318,7 @@ export default function ProfileModal({ profile, newUserRole, onClose, onSave }) 
           </div>
         </form>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 }

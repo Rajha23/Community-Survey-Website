@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Save, Send, Loader2, CheckCircle2, ChevronRight, ChevronLeft, Sparkles, ArrowLeft, FileText } from 'lucide-react';
+import { Save, Send, Loader2, CheckCircle2, ChevronRight, ChevronLeft, Sparkles, ArrowLeft, FileText, X } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
 import AiAnalysisViewer from '../AiAnalysisViewer';
 
@@ -620,9 +621,15 @@ export default function StudentDashboard({ user, userData }) {
       )}
 
       {/* Uneditable Survey Record Modal (Matches Screenshot 2) */}
-      {selectedSurveyRecord && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6 md:p-8 shadow-2xl">
+      {selectedSurveyRecord && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-fadeIn"
+          onClick={() => setSelectedSurveyRecord(null)}
+        >
+          <div 
+            className="bg-[#0f172a] border border-white/15 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6 md:p-8 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
               <div>
                 <h3 className="text-2xl font-serif text-white">Survey Record</h3>
@@ -632,10 +639,10 @@ export default function StudentDashboard({ user, userData }) {
               </div>
               <button 
                 onClick={() => setSelectedSurveyRecord(null)} 
-                className="text-text-muted hover:text-white text-2xl font-bold p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                className="text-text-muted hover:text-white p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 title="Close"
               >
-                &times;
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -688,7 +695,8 @@ export default function StudentDashboard({ user, userData }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
