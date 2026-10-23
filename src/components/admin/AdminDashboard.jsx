@@ -4,9 +4,10 @@ import { collection, getDocs, doc, setDoc, addDoc, query, where, deleteDoc, upda
 import { auth, db, secondaryAuth } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import ProfileModal from './ProfileModal';
-import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar, CheckCircle2, RotateCcw, Eye, X } from 'lucide-react';
+import { Users, FileText, UserPlus, Building, Sparkles, Loader2, Trash2, Calendar, CheckCircle2, RotateCcw, Eye, X, Download } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
 import { generateClientSideAnalysis } from '../../lib/geminiAnalysis';
+import { exportAiReportToPdf } from '../../lib/exportAiReport';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#00E5FF', '#FFB800', '#FF3366', '#00E5FF80', '#FFB80080', '#FF336680'];
@@ -616,17 +617,33 @@ export default function AdminDashboard({ user, userData }) {
               <span className="text-white/60 text-[11px] font-mono bg-white/5 px-2 py-0.5 rounded">Saved in Database</span>
             </div>
           )}
-          {currentAiContext && (
-            <div className="flex justify-end mb-4">
+          {aiData && (
+            <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
               <button 
-                onClick={handlePublishResult} 
-                className="px-6 py-2.5 bg-brand-yellow text-black font-bold rounded-lg shadow-lg hover:bg-[#F9EBD0] transition-colors flex items-center gap-2 cursor-pointer"
+                onClick={() => exportAiReportToPdf({
+                  aiData,
+                  title: 'Community Survey & Design Thinking Intelligence Report',
+                  communityName: currentAiContext?.communityName || communities.find(c => c.id === aiCommunityId)?.name || 'Community',
+                  subtitle: `Comprehensive AI Assessment derived from ${currentAiContext?.surveyIds?.length || surveyRecords.filter(s => s.communityId === aiCommunityId).length || 0} field survey submissions`,
+                  generatedAt: currentAiContext?.savedAt || new Date().toISOString()
+                })}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition-colors flex items-center gap-2 cursor-pointer"
+                title="Download or Print full Design Thinking PDF Report"
               >
-                <Sparkles className="w-5 h-5" /> 
-                {(currentAiContext.surveyIds?.length || 0) === 1 
-                  ? 'Publish Survey Analysis to Student Record' 
-                  : 'Publish Global Analysis to Student Portal'}
+                <Download className="w-5 h-5" /> Export PDF Report
               </button>
+
+              {currentAiContext && (
+                <button 
+                  onClick={handlePublishResult} 
+                  className="px-6 py-2.5 bg-brand-yellow text-black font-bold rounded-lg shadow-lg hover:bg-[#F9EBD0] transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-5 h-5" /> 
+                  {(currentAiContext.surveyIds?.length || 0) === 1 
+                    ? 'Publish Survey Analysis to Student Record' 
+                    : 'Publish Global Analysis to Student Portal'}
+                </button>
+              )}
             </div>
           )}
           {cp && (

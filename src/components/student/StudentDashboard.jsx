@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Save, Send, Loader2, CheckCircle2, ChevronRight, ChevronLeft, Sparkles, ArrowLeft, FileText, X } from 'lucide-react';
+import { Save, Send, Loader2, CheckCircle2, ChevronRight, ChevronLeft, Sparkles, ArrowLeft, FileText, X, Download } from 'lucide-react';
 import { surveyQuestions } from '../../lib/surveyData';
 import AiAnalysisViewer from '../AiAnalysisViewer';
+import { exportAiReportToPdf } from '../../lib/exportAiReport';
 
 export default function StudentDashboard({ user, userData }) {
   const [step, setStep] = useState('loading'); // loading, dashboard, personal-details, community-select, survey, success
@@ -283,9 +284,24 @@ export default function StudentDashboard({ user, userData }) {
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
                 </button>
-                <span className="text-xs font-mono text-brand-green px-3 py-1 rounded-full bg-brand-green/10 border border-brand-green/30">
-                  {currentViewingAnalysis.title}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => exportAiReportToPdf({
+                      aiData: currentViewingAnalysis.data,
+                      title: currentViewingAnalysis.title,
+                      communityName: currentViewingAnalysis.data?._communityProfile?.name || currentViewingAnalysis.title,
+                      subtitle: currentViewingAnalysis.subtitle,
+                      generatedAt: new Date().toISOString()
+                    })}
+                    className="flex items-center px-4 py-2 bg-brand-green hover:bg-brand-green/90 text-black font-bold text-xs rounded-lg shadow-md transition-colors cursor-pointer"
+                    title="Export and print complete PDF analysis report"
+                  >
+                    <Download className="w-4 h-4 mr-1.5" /> Export PDF Report
+                  </button>
+                  <span className="text-xs font-mono text-brand-green px-3 py-1 rounded-full bg-brand-green/10 border border-brand-green/30">
+                    {currentViewingAnalysis.title}
+                  </span>
+                </div>
               </div>
               <h2 className="text-2xl font-serif text-brand-green mb-1 flex items-center gap-2">
                 <Sparkles className="w-6 h-6" /> {currentViewingAnalysis.title}

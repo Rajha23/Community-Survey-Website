@@ -1,15 +1,31 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Download } from 'lucide-react';
+import { exportAiReportToPdf } from '../lib/exportAiReport';
 
 const COLORS = ['#00E5FF', '#FFB800', '#FF3366', '#00E5FF80', '#FFB80080', '#FF336680'];
 
-export default function AiAnalysisViewer({ aiData, children }) {
+export default function AiAnalysisViewer({ aiData, title, children, showExportButton = false }) {
   if (!aiData) return null;
   
   const cp = aiData._communityProfile;
   return (
     <div className="space-y-6 mt-6">
+      {showExportButton && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => exportAiReportToPdf({
+              aiData,
+              title: title || 'Community Development & Design Thinking Analysis',
+              communityName: cp?.name || 'Community',
+              generatedAt: new Date().toISOString()
+            })}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg transition-colors cursor-pointer"
+          >
+            <Download className="w-4 h-4" /> Export PDF Report
+          </button>
+        </div>
+      )}
       {children}
       
       {cp && (
