@@ -34,47 +34,6 @@ export function extractAndAggregate(submissions) {
   return aggregatedStats;
 }
 
-function fixInternalQuotes(jsonStr) {
-  let result = '';
-  let inString = false;
-  let isEscaped = false;
-
-  for (let i = 0; i < jsonStr.length; i++) {
-    const char = jsonStr[i];
-
-    if (char === '\\' && inString) {
-      isEscaped = !isEscaped;
-      result += char;
-      continue;
-    }
-
-    if (char === '"' && !isEscaped) {
-      if (!inString) {
-        inString = true;
-        result += char;
-      } else {
-        let j = i + 1;
-        while (j < jsonStr.length && /\s/.test(jsonStr[j])) {
-          j++;
-        }
-        const nextChar = jsonStr[j];
-        if (nextChar === ':' || nextChar === ',' || nextChar === '}' || nextChar === ']' || j === jsonStr.length) {
-          inString = false;
-          result += char;
-        } else {
-          result += "'";
-        }
-      }
-    } else {
-      result += char;
-    }
-
-    isEscaped = false;
-  }
-
-  return result;
-}
-
 export function cleanAndParseJson(raw) {
   if (!raw || typeof raw !== 'string') return raw;
 
@@ -93,30 +52,67 @@ export function cleanAndParseJson(raw) {
     return JSON.parse(clean);
   } catch (_) {}
 
-  // Attempt 2: Quote unquoted object keys (e.g. value: 2 -> "value": 2)
-  let pass1 = clean.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-
-  // Attempt 3: Remove trailing commas before } or ]
-  pass1 = pass1.replace(/,\s*([}\]])/g, '$1');
+  // Attempt 2: Strip TypeScript assertions (e.g. "Medium" as any,), comments, trailing commas, quote keys
+  let sanitized = clean
+    // Remove "as any", "as string", "as const" etc.
+    .replace(/\s+as\s+[a-zA-Z0-9_<>[\]]+(?=\s*[,}\]])/g, '')
+    // Remove single line comments outside of strings
+    .replace(/(?<=^|[^:])\/\/.*$/gm, '')
+    // Remove block comments
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    // Quote unquoted object keys (e.g. value: 2 -> "value": 2)
+    .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+    // Remove trailing commas before } or ]
+    .replace(/,\s*([}\]])/g, '$1');
 
   try {
-    return JSON.parse(pass1);
+    return JSON.parse(sanitized);
   } catch (_) {}
 
-  // Attempt 4: Fix unescaped internal quotes inside strings
-  let pass2 = fixInternalQuotes(pass1);
+  // Attempt 3: Escape raw control characters inside string literals (e.g. literal newlines/tabs inside quotes)
+  let inString = false;
+  let isEscaped = false;
+  let fixedChars = '';
+  for (let i = 0; i < sanitized.length; i++) {
+    const c = sanitized[i];
+    if (c === '\\' && inString) {
+      isEscaped = !isEscaped;
+      fixedChars += c;
+      continue;
+    }
+    if (c === '"' && !isEscaped) {
+      inString = !inString;
+      fixedChars += c;
+    } else if (inString) {
+      if (c === '\n') fixedChars += '\\n';
+      else if (c === '\r') fixedChars += '';
+      else if (c === '\t') fixedChars += '\\t';
+      else if (c.charCodeAt(0) < 32) fixedChars += ' ';
+      else fixedChars += c;
+    } else {
+      fixedChars += c;
+    }
+    isEscaped = false;
+  }
+
   try {
-    return JSON.parse(pass2);
+    return JSON.parse(fixedChars);
   } catch (_) {}
 
-  // Attempt 5: Clean control characters
-  let pass3 = pass2.replace(/[\r\n\t]/g, ' ');
+  // Attempt 4: Clean any leftover control characters globally
+  let pass4 = fixedChars.replace(/[\x00-\x1F\x7F-\x9F]/g, (char) => {
+    if (char === '\n') return '\\n';
+    if (char === '\r') return '';
+    if (char === '\t') return '\\t';
+    return ' ';
+  });
+
   try {
-    return JSON.parse(pass3);
+    return JSON.parse(pass4);
   } catch (_) {}
 
   // Final fallback attempt
-  return JSON.parse(pass2);
+  return JSON.parse(sanitized);
 }
 
 export const generateClientSideAnalysis = async ({ analysisType, referenceId, communityData, submissions, selectedTopics }) => {
@@ -135,7 +131,7 @@ export const generateClientSideAnalysis = async ({ analysisType, referenceId, co
     problemTree: `      problemTree: { \n        mainProblem: string; // 2-4 words\n        causes: string[]; // Max 3 words each\n        effects: string[]; // Max 3 words each\n      }; // (MUST NOT BE EMPTY)`,
     affinityDiagram: `      affinityDiagram: Array<{ \n        theme: string; // 1-3 words\n        insights: string[]; // Max 5 words each\n      }>; // (MUST NOT BE EMPTY)`,
     howMightWeStatements: `      howMightWeStatements: string[]; // Generate exactly 3 statements. Max 10 words each.`,
-    priorityMatrix: `      priorityMatrix: Array<{ \n        idea: string; // Max 5 words\n        impact: "High" | "Low"; \n        effort: "High" | "Low"; \n      }>; // (MUST NOT BE EMPTY)`,
+    priorityMatrix: `      priorityMatrix: Array<{ \n        idea: string; // Max 5 words\n        impact: string; // "High", "Medium", or "Low"\n        effort: string; // "High", "Medium", or "Low"\n      }>; // (MUST NOT BE EMPTY)`,
     sdgMapping: `      sdgMapping: Array<{ \n        sdg: string; // e.g. "SDG 6"\n        score: number; // 0 to 100\n        reason: string; // Max 5 words\n      }>; // (MUST NOT BE EMPTY)`,
     communityPriorityIndex: `      communityPriorityIndex: Array<{ \n        problem: string; // Max 3 words\n        score: number; // 0 to 100\n      }>; // (MUST NOT BE EMPTY)`,
     implementationRoadmap: `      implementationRoadmap: Array<{ \n        month: string; // e.g. "Month 1"\n        activity: string; // Max 5 words\n      }>; // (MUST NOT BE EMPTY)`,
@@ -159,15 +155,19 @@ export const generateClientSideAnalysis = async ({ analysisType, referenceId, co
   IMPORTANT: You MUST generate actual, deep insights derived exclusively from the Aggregated Survey Data. DO NOT under any circumstances output placeholder text or generic templates. 
   CRITICAL: Even if the provided data is sparse, you MUST extrapolate and infer reasonable Design Thinking insights to COMPLETELY populate the entire JSON structure. Do NOT leave any array empty. Every single array MUST have at least 1-3 highly detailed items. Be creative and analytical.
   
-  The JSON output MUST perfectly conform to the following TypeScript interface. All fields are REQUIRED.
+  The JSON output MUST strictly conform to the structure described below. All requested fields are REQUIRED.
   
   CRITICAL SYNTAX & FORMATTING RULES:
-  1. ALL property keys MUST be in double quotes (e.g. "name": "...", "value": 10). NEVER output unquoted keys.
-  2. NEVER use unescaped double quotes inside string values. If quoting terms or phrases, use single quotes (e.g. 'water') or escape with \\".
-  3. NEVER include trailing commas before } or ].
-  4. Output ONLY the raw JSON object parseable by standard JSON.parse(). Do not include markdown codeblocks or comments.
+  1. Output pure, 100% standard JSON only.
+  2. NEVER use TypeScript syntax (DO NOT output "as any", type assertions, type annotations, or TypeScript keywords).
+  3. NEVER output comments (no // and no /* */).
+  4. ALL property keys and string values MUST be in double quotes (e.g. "name": "value").
+  5. NEVER use unescaped double quotes inside string values. If quoting terms, use single quotes (e.g. 'water') or escape with \\".
+  6. NEVER include trailing commas before } or ].
+  7. Output ONLY the raw JSON object starting with { and ending with }.
 
-  interface AnalysisOutput {
+  JSON Structure Specification:
+  {
 ${interfaceBody}
   }
   
@@ -184,7 +184,7 @@ ${interfaceBody}
       responseMimeType: "application/json"
     },
     systemInstruction: {
-      parts: [{ text: "You are an expert Community Development and Design Thinking AI. Your ONLY job is to take the provided Aggregated Survey Data and synthesize a hyper-specific, data-driven, actionable analysis in strictly valid JSON format. Never include unescaped quotes inside strings. Do not use generic template text. Everything must be derived from the user's data." }]
+      parts: [{ text: "You are an expert Community Development and Design Thinking AI. Your ONLY job is to take the provided Aggregated Survey Data and synthesize a hyper-specific, data-driven, actionable analysis in strictly valid standard JSON format. Never include TypeScript syntax like 'as any', type casts, or comments. Never include unescaped quotes or raw control characters inside strings. Everything must be derived from the user's data." }]
     }
   };
 
